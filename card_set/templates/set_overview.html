@@ -1,0 +1,29 @@
+<h1>Trading Card Provenance</h1>
+
+<h2>{{set}}</h2>
+
+<h3>Products</h3>
+{% for prod, stats in product_overview.items %}
+  <strong>{{ stats.percent }}%</strong> of pulls come from {{ prod.type }} <a href="/index_ui/{{ prod.id }}">Index New</a>
+{% endfor %}
+
+<h3>Subsets</h3>
+<ul>
+{% for name, data in non_auto_subsets.items %}
+  <li><strong>{{ name }}</strong><br>
+    {% for item in data %}
+      <a href="/subset_overview?id={{item.id}}">{{ item.color }} {% if item.serial_base %}/{{ item.serial_base }}{% else %}{% endif %}</a><br>
+    {% endfor %}
+  </li>
+{% endfor %}
+</ul>
+
+<h3>Autographs</h3>
+<ul>
+{% for name, data in auto_subsets.items %}
+  <li><strong>{{ name }}</strong><br>
+    {% for item in data %}
+      <a href="/subset_overview?id={{item.id}}">{{ item.color }} {% if item.serial_base %}/{{ item.serial_base }}{% else %}{% endif %}</a><br>
+    {% endfor %}
+{% endfor %}
+</ul>

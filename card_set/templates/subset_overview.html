@@ -1,0 +1,22 @@
+<h1>Trading Card Provenance</h1>
+
+<h2>{{ subset }}</h2>
+
+<a href="/set_overview?set={{ subset.set.id }}">{{ subset.set }}</a>
+
+<h3>Statistics</h3>
+
+{% for product, data in statistics.items %}
+  {{ data.found }} Found in {{ product.type }}<br>
+  At least one found in {{ data.boxes_found_in }} out of a total of {{ data.box_population }} boxes.<br>
+  Expected to exist: {{ data.expected }}<br>
+  Percent found: {{ data.percentage_found|floatformat:2 }}%<br>
+  Odds: {{ data.odds_per_box }}<br>
+{% endfor %}
+
+<h3>Cards Pulled</h3>
+<table>
+{% for card, data in summary.items %}
+  <tr><th>{{ card }}</th><td>{{data}}</td></tr>
+{% endfor %}
+</table>
