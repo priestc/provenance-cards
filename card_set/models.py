@@ -1,8 +1,10 @@
 import collections
 import datetime
 import json
+import math
 
 from django.db import models
+from django.utils.text import slugify
 
 from youtubesearchpython import Video as YTVideo, ResultMode
 
@@ -36,15 +38,32 @@ class Set(models.Model):
         return detailed_stats
 
     def cards_per_box(self):
-        avgs = []
-        all_subsets = Subset.objects.filter(set=self)
-        all_pulls = Video.objects.filter(subset__in=all_subsets)
-        for vid in all_pulls:
-            avgs.append(vid.cards_per_box())
+        pulls = Pull.objects.filter(subset__set=self).count()
+        boxes = Box.objects.filter(product__set=self).count()
+        return math.floor(pulls / boxes)
 
-        return sum(avgs) / len(avgs)
+    def best_box_print_estimate(self):
+        pass
 
-    def all_subsets(self, for_dropdown=False):
+    def breaker_rundown(self):
+        breakers = collections.defaultdict(dict)
+        for box in Box.objects.filter(product__set=self).select_related('video', 'video__breaker').all():
+            data = breakers[box.video.breaker]
+            scarcity = data.get('scarcity', 0)
+            data['scarcity'] = scarcity + box.scarcity_score
+            count = data.get('count', 0)
+            data['count'] = count + 1
+
+        for breaker, data in breakers.items():
+            data['avg'] = data['scarcity'] / data['count']
+
+        return sorted(
+            [[breaker, data['count'], data['avg']] for breaker, data in breakers.items()],
+            key=lambda x: x[2], reverse=True
+        )
+
+
+    def all_subsets(self, categories=False):
         subsets = collections.defaultdict(list)
         autographs = collections.defaultdict(list)
 
@@ -68,15 +87,18 @@ class Set(models.Model):
                 "pop": population
             })
 
-        return {
-            'Autographs': dict(autographs), "Subsets": dict(subsets)
-        }
+        if categories:
+            return {
+                'Autographs': dict(autographs), "Subsets": dict(subsets)
+            }
+        return {**autographs, **subsets}
+
 
     def get_subset_dropdowns(self):
         subsets = self.all_subsets()
-        subsets_no_categories = {**subsets['Subsets'], **subsets['Autographs']}
         menus = collections.defaultdict(list)
-        for name, kinds in subsets_no_categories.items():
+
+        for name, kinds in subsets.items():
             accumulated_pop = 0
             for data in kinds:
                 if data['serial_base']:
@@ -109,6 +131,18 @@ class Set(models.Model):
         return list(
             Player.objects.filter(pull__in=all_pulls).values_list('player_name', flat=True).distinct()
         )
+
+    def get_luck_ranges(self):
+        all_boxes = Box.objects.filter(product__set=self)
+        box_count = all_boxes.count()
+        unlucky_base = all_boxes.order_by("scarcity_score")
+        lucky_base = unlucky_base.reverse()
+        return {
+            'super_lucky': lucky_base[math.floor(box_count/6)].scarcity_score,
+            'lucky': lucky_base[math.floor(box_count/3)].scarcity_score,
+            'unlucky': unlucky_base[math.floor(box_count/3)].scarcity_score,
+            'super_unlucky': unlucky_base[math.floor(box_count/6)].scarcity_score
+        }
 
 class Manufacturer(models.Model):
     manufacturer = models.TextField()
@@ -203,18 +237,28 @@ class Subset(models.Model):
             return
         return 100.0 * self.seen_checklist_size() / self.checklist_size
 
+    def pulls_for_player(self, player):
+        pulls = self.pull_set.filter(player=player)
+        return pulls
+
     class Meta:
         ordering = ("-serial_base", )
+        unique_together = ['set', 'name', 'serial_base', 'color']
 
 class Player(models.Model):
     player_name = models.TextField()
     variation = models.TextField(blank=True)
+    player_slug = models.SlugField()
 
     def __str__(self):
         return "%s %s" % (self.player_name, self.variation)
 
     class Meta:
         ordering = ('player_name', )
+
+    def save(self, *a, **k):
+        self.player_slug = slugify(self.player_name)
+        super(Player, self).save(*a, **k)
 
 class Video(models.Model):
     youtube_identifier = models.TextField(unique=True)
@@ -224,6 +268,8 @@ class Video(models.Model):
 
     @classmethod
     def get_youtube_info(cls, youtube_identifier):
+        if youtube_identifier.startswith("https://www.youtube.com/watch?v="):
+            youtube_identifier = youtube_identifier[32:]
         try:
             info = json.loads(
                 YTVideo.getInfo('https://youtu.be/%s' % youtube_identifier, mode=ResultMode.json)
@@ -275,6 +321,10 @@ class Video(models.Model):
         except IndexError:
             return 1
 
+    def last_pull_timestamp(self):
+        a = Pull.objects.filter(box__video=self).aggregate(m=models.Max('front_timestamp'))
+        return a['m']
+
 class Breaker(models.Model):
     name = models.TextField()
 
@@ -285,19 +335,31 @@ class Pull(models.Model):
     subset = models.ForeignKey("Subset", on_delete=models.PROTECT)
     serial = models.TextField(blank=True)
     player = models.ForeignKey("Player", on_delete=models.PROTECT)
-    timestamp = models.TextField(blank=True)
+    front_timestamp = models.FloatField(blank=True, null=True)
+    back_timestamp = models.FloatField(blank=True, null=True)
     damage = models.TextField(blank=True)
     box = models.ForeignKey("Box", on_delete=models.PROTECT, null=True)
 
     def __str__(self):
-        if self.subset.serial_base and not self.serial:
-            serial = "?/%s" % self.subset.serial_base
-        elif self.serial:
-            serial = "%s/%s" % (self.serial, self.subset.serial_base)
-        else:
-            serial = "Unnumbered"
-
+        serial = self.show_identifier()
         return "%s %s %s %s" % (self.player, self.subset.name, self.subset.color, serial)
+
+    def show_identifier(self):
+        if self.subset.serial_base and not self.serial:
+            return "?/%s" % self.subset.serial_base
+        elif self.serial:
+            return "%s/%s" % (self.serial, self.subset.serial_base)
+        else:
+            return "Unnumbered"
+
+    def video_link(self):
+        yt = self.box.video.youtube_identifier
+        if yt:
+            ts = self.front_timestamp or 0
+            return '<a href="https://youtu.be/%s?t=%d">Link</a>' % (
+                yt, ts
+            )
+
 
 class Product(models.Model):
     set = models.ForeignKey("Set", on_delete=models.PROTECT)
@@ -312,10 +374,14 @@ class Product(models.Model):
     def cards_per_box(self):
         return self.cards_per_pack * self.packs_per_box
 
+    def luckiest_boxes(self):
+        return self.box_set.order_by('-scarcity_score')[:3]
+
 class Box(models.Model):
     product = models.ForeignKey("Product", on_delete=models.PROTECT)
     video = models.ForeignKey("Video", on_delete=models.PROTECT)
     order = models.IntegerField()
+    scarcity_score = models.FloatField(blank=True, default=0)
 
     def __str__(self):
         return "%s-%s" % (self.video, self.order)
@@ -328,3 +394,27 @@ class Box(models.Model):
         for pull in self.pull_set.all():
             disp += "%s\n" % pull
         return disp
+
+    def calculate_scarcity_score(self):
+        score = 0
+        for pull in self.pull_set.select_related('subset').all():
+            sb = pull.subset.serial_base
+            score += 0 if not sb else 1.0 / sb
+        self.scarcity_score = score
+        self.save()
+        return score
+
+    def scarcity_rank(self):
+        return Box.objects.filter(scarcity_score__gte=self.scarcity_score).count()
+
+    def how_lucky(self):
+        ranges = self.product.set.get_luck_ranges()
+        if self.scarcity_score > ranges['super_lucky']:
+            return "super lucky"
+        if self.scarcity_score < ranges['super_unlucky']:
+            return "super unlucky"
+        if self.scarcity_score > ranges['lucky']:
+            return "lucky"
+        if self.scarcity_score < ranges['unlucky']:
+            return "unlucky"
+        return "normal"

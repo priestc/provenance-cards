@@ -7,71 +7,181 @@
     crossorigin="anonymous"></script>
 
     <script src="{% static 'html2canvas.min.js' %}"></script>
+    <script src="https://www.youtube.com/player_api"></script>
 
     <script>
-      var tag = document.createElement('script');
-      tag.src = "https://www.youtube.com/player_api";
-      var firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-      var shorthands = {{ shorthands_json|safe }};
-      var expected_pulls = {{ expected_pulls }};
+      var shorthands = {{ shorthands_json|safe|default:"null" }};
+      var expected_pulls = {{ expected_pulls|default:0 }};
+      var product_id = {{ product_id }};
+      var youtube_identifier = "{{ youtube_identifier }}";
+      var left_off = {{ left_off|default:0|floatformat:0 }};
+      var luck_ranges = {{ luck_ranges|safe|default:"null" }};
     </script>
+
+    <style>
+      #right_side {
+        float: left;
+      }
+      #pull_template {
+        display: none
+      }
+      #pulls {
+        margin: 20px;
+        display: none;
+      }
+      #pulls tr:nth-child(even){
+        background: #dfdfdf;
+      }
+      #pulls tr:nth-child(odd){
+        background: #a6a6a6;
+      }
+      #pulls tr:first-child {
+        background: none;
+        font-size: large;
+      }
+      #pulls td {
+        vertical-align: middle;
+        padding: 2px;
+      }
+      #pulls td select, #pulls td input.shorthand {
+        width: 100%;
+      }
+      input.serial {
+        width: 5em
+      }
+      #ytplayer {
+        margin: 10px;
+      }
+      #button_area {
+        display: none;
+      }
+      #error {
+        font-size: large; color: red
+      }
+      #side_by_side {
+        overflow: hidden
+      }
+      #left_side {
+        float: left;
+      }
+      .manual_player {
+        display: none;
+      }
+      .manual_color {
+        display: none;
+      }
+      .manual_subset {
+        display: none;
+      }
+      #luck_indicator {
+        text-align: center;
+        margin: 0 auto 0 auto;
+        font-size: xx-large;
+        font-weight: bold;
+        text-transform: capitalize;
+      }
+      .lucky {
+        color: #5bff19;
+        background-color: #689828;
+      }
+      .unlucky {
+        color: #cbff00;
+        background-color: red;
+      }
+      .super_lucky {
+        color: green;
+        background-color: lime;
+      }
+      .super_unlucky {
+        color: #9bff00;
+        background-color: #540101;
+      }
+      .normal {
+        color: black;
+        background-color: white;
+      }
+
+    </style>
 
     <h1>Card Provanance</h1>
     <h2>Index New {{ product }}</h2>
 
+    {% if not youtube_identifier %}
     <div id="step1">
-      Youtube video id: <input type="text" id="youtube_id"><br>
-      <input type="button" id="next1" value="Next">
+      <div id="error"></div>
+      <form action="." method="post">
+        Youtube video id: <input type="text" name="youtube_id" value=""><br>
+        <input type="submit" value="Next">
+      </form>
+    </div>
+    {% endif %}
+
+    <div id="side_by_side">
+      <div id="left_side">
+        <div id="ytplayer"></div>
+
+        <div id="button_area">
+          <button id="new_card">New Card</button>
+          <input type="button" id="send" value="Send">
+          Order: <input type="text" id="order" value="{{ next_order }}">
+          <input type="button" id="slow" value="slow"> <input type="button" id="normal" value="normal">
+        </div>
+      </div>
+
+      <div id="right_side">
+        <div id="luck_indicator" class="normal">normal</div>
+        <table id="pulls">
+          <tr>
+            <td>Player</td><td>Front Timestamp</td><td>Subset</td><td>Serial</td><td>Damage</td><td>Back Timestamp</td>
+          </tr>
+          <tr id="pull_template" style="display: none">
+            <td>
+              <input type="text" class="manual_player">
+              <select class="player">
+                <option value="---">----</option>
+                {% for player in players %}
+                  <option value="{{ player }}">{{ player }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <input class="snap" type="button" value="Snap">
+              <input class="ts front_timestamp" type="text">
+            </td>
+            <td>
+              <input type="text" class="manual_subset">
+              <select class="subset" tabindex="-1">
+                <option value="---">----</option>
+                {% for name in dropdowns.name %}
+                  <option value="{{ name.0 }}">{{ name.0 }}</option>
+                {% endfor %}
+              </select>
+              <br>
+              <input type="text" class="manual_color">
+              <select class="color" tabindex="-1">
+                <option value="---">----</option>
+                {% for color in dropdowns.color %}
+                  <option value="{{ color.0 }}">{{ color.0 }}</option>
+                {% endfor %}
+              </select>
+              <br><input class="shorthand" type="text">
+            </td>
+            <td>
+              <input class="serial" type="text">
+            </td>
+            <td>
+              <input class="damage" type="text">
+            </td>
+            <td>
+              <input class="snap" type="button" value="Snap">
+              <input class="ts back_timestamp" type="text">
+            </td>
+          </tr>
+        </table>
+      </div>
     </div>
 
-    <div id="ytplayer"></div>
-
-    <table id="pulls">
-      <tr>
-        <td>Timestamp</td><td>Subset</td><td>Serial</td><td>Player</td><td>Damage</td>
-      </tr>
-      <tr id="pull_template" style="display: none">
-        <td>
-          <input class="snap" type="button" value="Snap">
-          <input class="timestamp" type="text">
-        </td>
-        <td>
-          <select class="subset">
-            <option value="---">----</option>
-            {% for name in dropdowns.name %}
-              <option value="{{ name.0 }}">{{ name.0 }}</option>
-            {% endfor %}
-          </select>
-          <br>
-          <select class="color">
-            <option value="---">----</option>
-            {% for color in dropdowns.color %}
-              <option value="{{ color.0 }}">{{ color.0 }}</option>
-            {% endfor %}
-          </select>
-          <br><input class="shorthand" type="text">
-        </td>
-        <td>
-          <input class="serial" type="text">
-        </td>
-        <td>
-          <select class="player">
-            <option value="---">----</option>
-            {% for player in players %}
-              <option value="{{ player }}">{{ player }}</option>
-            {% endfor %}
-          </select>
-        </td>
-        <td>
-          <input class="damage" type="text">
-        </td>
-      </tr>
-    </table>
-
-
-    <button id="new_card">New Card</button>
+    <div id="screenshot"></div>
 
     <script>
       $("body").on("keyup", ".shorthand", function(){
@@ -82,59 +192,153 @@
           var color = selection[1];
           var subset = selection[0]
           tthis.parent().find(".color").val(color);
+          //update_luck();
           tthis.parent().find(".subset").val(subset);
         }
       });
 
       $("body").on("click", ".snap", function(){
-        var index = $(this).parent().parent()[0].data("index");
-        console.log($(this).parent().parent());
+        var index = $(this).closest("tr").data("index");
+        var ts = get_timestamp(index);
+        $(this).parent().find(".ts").val(ts);
+      });
+
+      $("body").on("change", ".color", function(){
+        update_luck();
       });
 
       $("#new_card").click(function(){
         var next_index = $(".pull").length + 1;
         var t = $("#pull_template").clone().removeAttr('id').addClass("pull");
         t.appendTo($("#pulls"))
-        t.show().attr("index", next_index)
+        t.show().data("index", next_index)
       });
 
-      $("#next1").click(function(){
-        var vid_id = $("#youtube_id").val();
+      $("#send").click(function(){
+        var order = $("#order").val();
         $.ajax({
-          "url": "/register_video/",
-          "data": {'youtube_id': vid_id},
+          "url": "/register_pulls/",
+          "data": {
+            'pulls': JSON.stringify(collect_pulls()),
+            'product_id': product_id, 'video_id': youtube_identifier, 'order': order
+          },
           "type": "post"
         }).done(function(response){
-          console.log(response);
-          if(response['error']) {
-            alert(response['error']);
-          } else {
-            embed_video(vid_id);
-          }
+          location.reload();
         });
       });
 
-      for(var x = 0; x < expected_pulls; x++) {
-        $('#new_card').click();
+      function make_double_clicker(textbox, dropdown) {
+        $("body").on("dblclick", textbox, function(){
+          var t = $(this);
+          t.hide();
+          t.parent().find(dropdown).show();
+        });
+        $("body").on("dblclick", dropdown, function(){
+          var t = $(this);
+          t.hide();
+          t.parent().find(textbox).show();
+        });
+      }
+      make_double_clicker(".manual_subset", ".subset");
+      make_double_clicker(".manual_player", ".player");
+      make_double_clicker(".manual_color", ".color");
+
+      $("#slow").click(function(){
+        player.setPlaybackRate(0.15);
+      });
+      $("#normal").click(function(){
+        player.setPlaybackRate(1.0);
+      });
+
+      function update_luck() {
+        var scarcity_score = 0;
+        $(".color").each(function(i, color){
+          var c = $(color).val();
+          var serial_base = get_serial_base(c);
+          if(!serial_base) {
+            console.log("No serial_base from:", i, c);
+            return
+          }
+          console.log("serial_base (loop):", serial_base);
+          scarcity_score += 1 / serial_base;
+        });
+        console.log("score:", scarcity_score);
+        var luck = scarcity_to_luck(scarcity_score);
+        console.log("luck:", luck);
+        $("#luck_indicator").text(luck).attr("class", luck.replace(" ", "_"));
       }
 
-      var player;
-      function embed_video(vid_id) {
-        player = new YT.Player('ytplayer', {
-          height: '360',
-          width: '640',
-          videoId: vid_id
+      function get_serial_base(color) {
+        if(!(" " + color).indexOf('/')) {
+          return null;
+        }
+        return parseInt(color.split("/")[1]);
+      }
+
+      function scarcity_to_luck(scarcity_score) {
+        if(scarcity_score > luck_ranges['super_lucky']) {
+          return "super lucky"
+        }
+        if(scarcity_score < luck_ranges['super_unlucky']) {
+          return "super unlucky"
+        }
+        if(scarcity_score > luck_ranges['lucky']) {
+          return "lucky"
+        }
+        if(scarcity_score < luck_ranges['unlucky']) {
+          return "unlucky"
+        }
+        return "normal"
+      }
+
+      function collect_pulls() {
+        var pulls = [];
+        $(".pull").each(function(i, p){
+          var pull = $(p);
+          var player = pull.find(".manual_player").val() || pull.find(".player").val();
+          var color = pull.find(".manual_color").val() || pull.find(".color").val();
+          var subset = pull.find(".manual_subset").val() || pull.find(".subset").val();
+          pulls.push({
+            'front_timestamp': pull.find(".front_timestamp").val(),
+            'back_timestamp': pull.find(".back_timestamp").val(),
+            'subset_name': subset,
+            'color': color,
+            'serial': pull.find(".serial").val(),
+            'player_name': player,
+            'damage': pull.find(".damage").val(),
+          })
         });
+        return pulls
       }
 
       function get_timestamp(pull_index) {
-        var shot_id = $("");
+        var shot_id = 'screenshot'
 
-        html2canvas(document.getElementById('ytplayer')).then(function(canvas) {
-            document.getElementById(shot_id).appendChild(canvas);
-        });
+        //html2canvas(document.getElementById('ytplayer')).then(function(canvas) {
+        //    document.getElementById(shot_id).appendChild(canvas);
+        //});
         return player.playerInfo.currentTime;
       }
+
+      var player;
+      window.YT.ready(function() {
+        if(youtube_identifier != "None"){
+          for(var x = 0; x < expected_pulls; x++) {
+            $('#new_card').click();
+          }
+
+          player = new YT.Player('ytplayer', {
+            height: '720',
+            width: '1280',
+            videoId: youtube_identifier,
+            playerVars: {start: left_off}
+          });
+
+          $("#pulls").show();
+          $("#button_area").show();
+        }
+      });
     </script>
   </body>
 

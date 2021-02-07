@@ -43,7 +43,7 @@ class PullInline(admin.TabularInline):
         return 12
 
 class BoxAdmin(admin.ModelAdmin):
-    list_display = ['id', 'video', 'order', 'pull_count']
+    list_display = ['id', 'video', 'order', 'pull_count', 'scarcity_rank', 'how_lucky']
     inlines = [
         PullInline
     ]

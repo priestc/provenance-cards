@@ -12,7 +12,9 @@
 {% for name, data in non_auto_subsets.items %}
   <li><strong>{{ name }}</strong><br>
     {% for item in data %}
-      <a href="/subset_overview?id={{item.id}}">{{ item.color }} {% if item.serial_base %}/{{ item.serial_base }}{% else %}{% endif %}</a><br>
+      <a href="/subset_overview/{{ item.id }}">
+        {% if item.color %}{{ item.color }}{% else %}{% endif %}
+        {% if item.serial_base %}/{{ item.serial_base }}{% else %}Unnumbered{% endif %}</a><br>
     {% endfor %}
   </li>
 {% endfor %}
@@ -23,7 +25,9 @@
 {% for name, data in auto_subsets.items %}
   <li><strong>{{ name }}</strong><br>
     {% for item in data %}
-      <a href="/subset_overview?id={{item.id}}">{{ item.color }} {% if item.serial_base %}/{{ item.serial_base }}{% else %}{% endif %}</a><br>
+      <a href="/subset_overview/{{ item.id }}">
+        {% if item.color %}{{ item.color }}{% else %}{% endif %}
+        {% if item.serial_base %}/{{ item.serial_base }}{% else %}Unnumbered{% endif %}</a><br>
     {% endfor %}
 {% endfor %}
 </ul>

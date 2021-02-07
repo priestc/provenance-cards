@@ -120,6 +120,5 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 9999999999
 from .local_settings import *

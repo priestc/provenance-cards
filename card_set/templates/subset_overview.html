@@ -10,13 +10,16 @@
   {{ data.found }} Found in {{ product.type }}<br>
   At least one found in {{ data.boxes_found_in }} out of a total of {{ data.box_population }} boxes.<br>
   Expected to exist: {{ data.expected }}<br>
+  {{ subset.checklist_size }} cards in the subset checklist.<br>
+  {{ unique }} Unique pulled ({{ unique_percent|floatformat:2 }}% of checklist)<br>
   Percent found: {{ data.percentage_found|floatformat:2 }}%<br>
   Odds: {{ data.odds_per_box }}<br>
 {% endfor %}
 
 <h3>Cards Pulled</h3>
+
 <table>
 {% for card, data in summary.items %}
-  <tr><th>{{ card }}</th><td>{{data}}</td></tr>
+  <tr><th><a href="/card_overview/{{ subset.id }}/{{ card|slugify }}">{{ card }}</a></th><td>{{data}}</td></tr>
 {% endfor %}
 </table>
