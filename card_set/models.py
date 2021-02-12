@@ -1,11 +1,17 @@
 import collections
 import datetime
+import glob
 import json
 import math
+import os
 
 from django.db import models
 from django.utils.text import slugify
+from django.conf import settings
 
+from moviepy.editor import VideoFileClip, concatenate_videoclips
+
+import youtube_dl
 from youtubesearchpython import Video as YTVideo, ResultMode
 
 def verbose_color(serial_base, color):
@@ -38,30 +44,12 @@ class Set(models.Model):
         return detailed_stats
 
     def cards_per_box(self):
-        pulls = Pull.objects.filter(subset__set=self).count()
+        pulls = Pull.objects.filter(card__subset__set=self).count()
         boxes = Box.objects.filter(product__set=self).count()
         return math.floor(pulls / boxes)
 
     def best_box_print_estimate(self):
         pass
-
-    def breaker_rundown(self):
-        breakers = collections.defaultdict(dict)
-        for box in Box.objects.filter(product__set=self).select_related('video', 'video__breaker').all():
-            data = breakers[box.video.breaker]
-            scarcity = data.get('scarcity', 0)
-            data['scarcity'] = scarcity + box.scarcity_score
-            count = data.get('count', 0)
-            data['count'] = count + 1
-
-        for breaker, data in breakers.items():
-            data['avg'] = data['scarcity'] / data['count']
-
-        return sorted(
-            [[breaker, data['count'], data['avg']] for breaker, data in breakers.items()],
-            key=lambda x: x[2], reverse=True
-        )
-
 
     def all_subsets(self, categories=False):
         subsets = collections.defaultdict(list)
@@ -126,23 +114,11 @@ class Set(models.Model):
                 mapping[subset.shorthand] = [subset.name, subset.verbose_color()]
         return mapping
 
-    def get_player_list(self):
-        all_pulls = Pull.objects.filter(box__product__set=self)
+    def get_subject_list(self):
+        all_pulls = Pull.objects.filter()
         return list(
-            Player.objects.filter(pull__in=all_pulls).values_list('player_name', flat=True).distinct()
+            Card.objects.filter(pull__box__product__set=self).values_list('subject__name', flat=True).distinct()
         )
-
-    def get_luck_ranges(self):
-        all_boxes = Box.objects.filter(product__set=self)
-        box_count = all_boxes.count()
-        unlucky_base = all_boxes.order_by("scarcity_score")
-        lucky_base = unlucky_base.reverse()
-        return {
-            'super_lucky': lucky_base[math.floor(box_count/6)].scarcity_score,
-            'lucky': lucky_base[math.floor(box_count/3)].scarcity_score,
-            'unlucky': unlucky_base[math.floor(box_count/3)].scarcity_score,
-            'super_unlucky': unlucky_base[math.floor(box_count/6)].scarcity_score
-        }
 
 class Manufacturer(models.Model):
     manufacturer = models.TextField()
@@ -216,7 +192,7 @@ class Subset(models.Model):
 
 
     def find_from_product(self, product):
-        pulls = Pull.objects.filter(box__product=product, subset=self).order_by('player')
+        pulls = Pull.objects.filter(box__product=product, card__subset=self).order_by('card__subject')
         return {
             'matched_boxes': [p.box for p in pulls],
             'total_found': pulls
@@ -224,41 +200,42 @@ class Subset(models.Model):
 
     def pull_count(self):
         summary = collections.defaultdict(lambda: 0)
-        for pull in Pull.objects.filter(subset=self).values('player__player_name'):
-            summary[pull['player__player_name']] += 1
+        for pull in Pull.objects.filter(card__subset=self).values('card__subject__name'):
+            summary[pull['card__subject__name']] += 1
 
         return dict(summary)
 
     def seen_checklist_size(self):
-        return Pull.objects.filter(subset=self).values("player").distinct().count()
+        return Pull.objects.filter(card__subset=self).values("subject").distinct().count()
 
     def seen_percentage(self):
         if not self.serial_base:
             return
         return 100.0 * self.seen_checklist_size() / self.checklist_size
 
-    def pulls_for_player(self, player):
-        pulls = self.pull_set.filter(player=player)
+    def pulls_for_subject(self, subject):
+        pulls = Pull.objects.filter(card__subset=self, card__subject=subject)
         return pulls
 
     class Meta:
         ordering = ("-serial_base", )
         unique_together = ['set', 'name', 'serial_base', 'color']
 
-class Player(models.Model):
-    player_name = models.TextField()
+class Subject(models.Model):
+    name = models.TextField()
     variation = models.TextField(blank=True)
-    player_slug = models.SlugField()
+    slug = models.SlugField()
+    #rookie_year = models.IntegerField(blank=True, null=True)
 
     def __str__(self):
-        return "%s %s" % (self.player_name, self.variation)
+        return "%s %s" % (self.name, self.variation)
 
     class Meta:
-        ordering = ('player_name', )
+        ordering = ('name', )
 
     def save(self, *a, **k):
-        self.player_slug = slugify(self.player_name)
-        super(Player, self).save(*a, **k)
+        self.slug = slugify(self.name)
+        super(Subject, self).save(*a, **k)
 
 class Video(models.Model):
     youtube_identifier = models.TextField(unique=True)
@@ -325,16 +302,44 @@ class Video(models.Model):
         a = Pull.objects.filter(box__video=self).aggregate(m=models.Max('front_timestamp'))
         return a['m']
 
+    def archive(self):
+        yi = self.youtube_identifier
+        ap = settings.ARCHIVE_PATH
+        tmpl = os.path.join(ap, '%(id)s.%(ext)s')
+        g = glob.glob(os.path.join(ap, yi + ".*"))
+        if g:
+            print("%s already exists, skipping" % g[0])
+            return
+        try:
+            ydl = youtube_dl.YoutubeDL({'outtmpl': tmpl})
+            ydl.download(['https://www.youtube.com/watch?v=%s' % yi])
+        except Exception as exc:
+            print(exc.__class__.__name__, exc)
+
+    def get_archive(self):
+        yi = self.youtube_identifier
+        ap = settings.ARCHIVE_PATH
+        tmpl = os.path.join(ap, '%(id)s.%(ext)s')
+        return glob.glob(os.path.join(ap, yi + ".*"))[0]
+
+    def video_link(self, timestamp=None):
+        yt = self.youtube_identifier
+        if yt:
+            ts = "?t=%d" % (timestamp or 0)
+            return '<a href="https://youtu.be/%s%s">Link</a>' % (yt, ts)
+
 class Breaker(models.Model):
     name = models.TextField()
 
     def __str__(self):
         return self.name
 
+def timestamp_to_str(float_ts):
+    return str(datetime.timedelta(seconds=math.floor(float_ts)))
+
 class Pull(models.Model):
-    subset = models.ForeignKey("Subset", on_delete=models.PROTECT)
     serial = models.TextField(blank=True)
-    player = models.ForeignKey("Player", on_delete=models.PROTECT)
+    card = models.ForeignKey("Card", on_delete=models.PROTECT, null=True)
     front_timestamp = models.FloatField(blank=True, null=True)
     back_timestamp = models.FloatField(blank=True, null=True)
     damage = models.TextField(blank=True)
@@ -342,23 +347,32 @@ class Pull(models.Model):
 
     def __str__(self):
         serial = self.show_identifier()
-        return "%s %s %s %s" % (self.player, self.subset.name, self.subset.color, serial)
+        #ts = "(%s to %s)" % (self.front_timestamp_str(), self.next_timestamp_str())
+        return "%s %s" % (self.card, serial)
 
     def show_identifier(self):
-        if self.subset.serial_base and not self.serial:
-            return "?/%s" % self.subset.serial_base
+        if self.card.subset.serial_base and not self.serial:
+            return "?/%s" % self.card.subset.serial_base
         elif self.serial:
-            return "%s/%s" % (self.serial, self.subset.serial_base)
+            return "%s/%s" % (self.serial, self.card.subset.serial_base)
         else:
             return "Unnumbered"
 
+    def next_timestamp_str(self):
+        return timestamp_to_str(self.front_timestamp + 5)
+        o = self.box.pull_set.filter(front_timestamp__gt=self.front_timestamp)
+        try:
+            ts = o.order_by('front_timestamp')[0].front_timestamp
+        except IndexError:
+            # last card in box, use 5 second clip
+            return timestamp_to_str(self.front_timestamp + 5)
+        return timestamp_to_str(ts)
+
+    def front_timestamp_str(self):
+        return timestamp_to_str(self.front_timestamp)
+
     def video_link(self):
-        yt = self.box.video.youtube_identifier
-        if yt:
-            ts = self.front_timestamp or 0
-            return '<a href="https://youtu.be/%s?t=%d">Link</a>' % (
-                yt, ts
-            )
+        return self.box.video.video_link(timestamp=self.front_timestamp)
 
 
 class Product(models.Model):
@@ -374,8 +388,54 @@ class Product(models.Model):
     def cards_per_box(self):
         return self.cards_per_pack * self.packs_per_box
 
-    def luckiest_boxes(self):
-        return self.box_set.order_by('-scarcity_score')[:3]
+    def best_examples(self):
+        return self.box_set.order_by('-scarcity_score')[:5]
+
+    def worst_examples(self):
+        boxes = list(self.box_set.order_by('scarcity_score')[:5])
+        boxes.reverse()
+        return boxes
+
+    def get_luck_ranges(self):
+        all_boxes = Box.objects.filter(product=self)
+        box_count = all_boxes.count()
+        unlucky_base = all_boxes.order_by("scarcity_score")
+        lucky_base = unlucky_base.reverse()
+        return {
+            'mega_lucky': lucky_base[20].scarcity_score if box_count >= 20 else 0,
+            'super_lucky': lucky_base[math.floor(box_count/6.0)].scarcity_score,
+            'lucky': lucky_base[math.floor(box_count/4)].scarcity_score,
+            'unlucky': unlucky_base[math.floor(box_count/4)].scarcity_score,
+            'super_unlucky': unlucky_base[math.floor(box_count/6.0)].scarcity_score,
+            'mega_unlucky': unlucky_base[20].scarcity_score if box_count >= 20 else 0,
+        }
+
+    @classmethod
+    def potential_rank(cls, product_id, scarcity_score, direction):
+        boxes = Box.objects.filter(product_id=product_id).order_by("scarcity_score")
+        if direction == 'top':
+            tag = 'gte'
+        elif direction == 'bottom':
+            tag = 'lte'
+        return boxes.filter(**{"scarcity_score__%s" % tag: scarcity_score}).count() + 1
+
+    def breaker_rundown(self):
+        breakers = collections.defaultdict(dict)
+        for box in Box.objects.filter(product=self).select_related('video', 'video__breaker').all():
+            data = breakers[box.video.breaker]
+            scarcity = data.get('scarcity', 0)
+            data['scarcity'] = scarcity + box.scarcity_score
+            count = data.get('count', 0)
+            data['count'] = count + 1
+
+        for breaker, data in breakers.items():
+            data['avg'] = data['scarcity'] / data['count']
+
+        return sorted(
+            [[breaker, data['count'], data['avg']] for breaker, data in breakers.items()],
+            key=lambda x: x[2], reverse=True
+        )
+
 
 class Box(models.Model):
     product = models.ForeignKey("Product", on_delete=models.PROTECT)
@@ -397,8 +457,8 @@ class Box(models.Model):
 
     def calculate_scarcity_score(self):
         score = 0
-        for pull in self.pull_set.select_related('subset').all():
-            sb = pull.subset.serial_base
+        for pull in self.pull_set.select_related('card__subset').all():
+            sb = pull.card.subset.serial_base
             score += 0 if not sb else 1.0 / sb
         self.scarcity_score = score
         self.save()
@@ -408,7 +468,11 @@ class Box(models.Model):
         return Box.objects.filter(scarcity_score__gte=self.scarcity_score).count()
 
     def how_lucky(self):
-        ranges = self.product.set.get_luck_ranges()
+        ranges = self.product.get_luck_ranges()
+        if self.scarcity_score > ranges['mega_lucky']:
+            return "Top 20 All Time"
+        if self.scarcity_score < ranges['mega_unlucky']:
+            return "Bottom 20 All Time"
         if self.scarcity_score > ranges['super_lucky']:
             return "super lucky"
         if self.scarcity_score < ranges['super_unlucky']:
@@ -418,3 +482,43 @@ class Box(models.Model):
         if self.scarcity_score < ranges['unlucky']:
             return "unlucky"
         return "normal"
+
+    def video_link(self):
+        first_ts = self.pull_set.order_by("front_timestamp")[0].front_timestamp
+        return self.video.video_link(timestamp=first_ts)
+
+    def hits(self):
+        hits = []
+        for pull in self.pull_set.select_related("card__subset").order_by('card__subset__serial_base'):
+            sb = pull.card.subset.serial_base
+            if sb:
+                icon = "<span class='hit_icon'>/%s</span>" % sb
+                hits.append(icon)
+        return " ".join(hits)
+
+class Card(models.Model):
+    subject = models.ForeignKey('Subject', on_delete=models.PROTECT)
+    subset = models.ForeignKey('Subset', on_delete=models.PROTECT)
+    card_number = models.CharField(max_length=12, blank=True)
+
+    def front_video(self):
+        clips = []
+        for pull in self.pull_set.all():
+            if not pull.front_timestamp:
+                continue
+            p = pull.box.video.get_archive()
+            if  p.endswith("mkv"):
+                continue
+            ts = pull.front_timestamp
+            print(VideoFileClip(p).size)
+            v = VideoFileClip(p).subclip(ts, ts+5)
+            clips.append(v)
+
+        final = concatenate_videoclips(clips, method="compose")
+        final.write_videofile("composite.mp4")
+
+    def __str__(self):
+        return "%s %s" % (self.subset, self.subject)
+
+    class Mega:
+        ordering = ('subject__name', 'subset__name')

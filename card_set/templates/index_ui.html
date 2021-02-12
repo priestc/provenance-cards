@@ -75,6 +75,7 @@
       }
       #luck_indicator {
         text-align: center;
+        display: none;
         margin: 0 auto 0 auto;
         font-size: xx-large;
         font-weight: bold;
@@ -95,6 +96,14 @@
       .super_unlucky {
         color: #9bff00;
         background-color: #540101;
+      }
+      .Top_20 {
+        background-color: purple;
+        color: white;
+      }
+      .Bottom_20 {
+        background-color: yellow;
+        color: gray;
       }
       .normal {
         color: black;
@@ -146,7 +155,7 @@
             </td>
             <td>
               <input class="snap" type="button" value="Snap">
-              <input class="ts front_timestamp" type="text">
+              <input class="ts front_timestamp" type="text" tabindex="-1">
             </td>
             <td>
               <input type="text" class="manual_subset">
@@ -170,11 +179,11 @@
               <input class="serial" type="text">
             </td>
             <td>
-              <input class="damage" type="text">
+              <input class="damage" type="text" tabindex="-1">
             </td>
             <td>
-              <input class="snap" type="button" value="Snap">
-              <input class="ts back_timestamp" type="text">
+              <input class="snap" type="button" value="Snap" tabindex="-1">
+              <input class="ts back_timestamp" type="text" tabindex="-1">
             </td>
           </tr>
         </table>
@@ -192,7 +201,7 @@
           var color = selection[1];
           var subset = selection[0]
           tthis.parent().find(".color").val(color);
-          //update_luck();
+          update_luck();
           tthis.parent().find(".subset").val(subset);
         }
       });
@@ -253,23 +262,42 @@
 
       function update_luck() {
         var scarcity_score = 0;
+        var total_found = 0;
         $(".color").each(function(i, color){
           var c = $(color).val();
           var serial_base = get_serial_base(c);
-          if(!serial_base) {
-            console.log("No serial_base from:", i, c);
+          if(serial_base == "no-card") {
             return
           }
-          console.log("serial_base (loop):", serial_base);
-          scarcity_score += 1 / serial_base;
+          if(serial_base) {
+            scarcity_score += 1 / serial_base;
+          }
+          total_found = i;
         });
-        console.log("score:", scarcity_score);
-        var luck = scarcity_to_luck(scarcity_score);
-        console.log("luck:", luck);
-        $("#luck_indicator").text(luck).attr("class", luck.replace(" ", "_"));
+        if(total_found >= 10) {
+          var luck = scarcity_to_luck(scarcity_score);
+          $("#luck_indicator").show().text(luck).attr("class", luck.replace(" ", "_"));
+
+          var direction = "top"
+          if(luck == "Bottom 20 All Time") {
+            direction = "bottom";
+          }
+          if(luck == "Bottom 20 All Time" || luck == "Top 20 All Time") {
+            $.ajax({
+              url: "/luck_rank/" + product_id,
+              type: "post",
+              data: {scarcity_score: scarcity_score, direction: direction}
+            }).done(function(response){
+              $("#luck_indicator").html(luck + "<br>#" + response['rank']);
+            });
+          }
+        }
       }
 
       function get_serial_base(color) {
+        if(color == '---') {
+          return "no-card"
+        }
         if(!(" " + color).indexOf('/')) {
           return null;
         }
@@ -277,6 +305,12 @@
       }
 
       function scarcity_to_luck(scarcity_score) {
+        if(scarcity_score > luck_ranges['mega_lucky']) {
+          return "Top 20 All Time"
+        }
+        if(scarcity_score < luck_ranges['mega_unlucky']) {
+          return "Bottom 20 All Time"
+        }
         if(scarcity_score > luck_ranges['super_lucky']) {
           return "super lucky"
         }

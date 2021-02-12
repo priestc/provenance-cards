@@ -1,12 +1,16 @@
 from django.contrib import admin
 
 from .models import (
-    Set, Manufacturer, Pull, Video, Breaker, Subset, Player, Product, Box
+    Set, Manufacturer, Pull, Video, Breaker, Subset, Subject, Product, Box, Card
 )
 
 admin.site.register(Set)
 admin.site.register(Manufacturer)
-admin.site.register(Pull)
+
+class PullAdmin(admin.ModelAdmin):
+    list_display = ('id', 'card', 'serial', 'front_timestamp')
+
+admin.site.register(Pull, PullAdmin)
 
 
 class VideoAdmin(admin.ModelAdmin):
@@ -33,14 +37,12 @@ class SubsetAdmin(admin.ModelAdmin):
         return disp
 
 admin.site.register(Subset, SubsetAdmin)
-admin.site.register(Player)
+admin.site.register(Subject)
 
 admin.site.register(Product)
 
 class PullInline(admin.TabularInline):
     model = Pull
-    def get_extra(self, request, obj=None, **kwargs):
-        return 12
 
 class BoxAdmin(admin.ModelAdmin):
     list_display = ['id', 'video', 'order', 'pull_count', 'scarcity_rank', 'how_lucky']
@@ -50,3 +52,4 @@ class BoxAdmin(admin.ModelAdmin):
     readonly_fields = ["display"]
 
 admin.site.register(Box, BoxAdmin)
+admin.site.register(Card)

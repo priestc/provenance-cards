@@ -4,7 +4,7 @@ from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import Set, Subset, Video, Product, Pull, Box, Player
+from .models import Set, Subset, Video, Product, Pull, Box, Subject, Card
 
 def set_overview(request):
     set_id = request.GET['set']
@@ -32,17 +32,25 @@ def subset_overview(request, subset_id):
         request, "subset_overview.html", locals()
     )
 
-def card_overview(request, subset_id, player_slug):
+def card_overview(request, subset_id, slug):
     subset = Subset.objects.get(pk=subset_id)
-    player = Player.objects.get(player_slug=player_slug)
+    subject = Subject.objects.get(slug=slug)
 
-    pulls = subset.pulls_for_player(player)
+    pulls = subset.pulls_for_subject(subject)
 
     return render(
         request, "card_overview.html", locals()
     )
 
 ############### api endpoints below
+
+@csrf_exempt
+def luck_rank(request, product_id):
+    scarcity_score = request.POST['scarcity_score']
+    direction = request.POST['direction']
+    return JsonResponse({
+        "rank": Product.potential_rank(product_id, scarcity_score, direction)
+    })
 
 @csrf_exempt
 def index_ui(request, product_id, youtube_identifier=None):
@@ -63,10 +71,10 @@ def index_ui(request, product_id, youtube_identifier=None):
 
     if youtube_identifier:
         video = Video.objects.get(youtube_identifier=youtube_identifier)
-        luck_ranges = product.set.get_luck_ranges()
+        luck_ranges = product.get_luck_ranges()
         dropdowns = product.set.get_subset_dropdowns()
         shorthands_json = json.dumps(product.set.get_shorthands())
-        players = product.set.get_player_list()
+        subjects = product.set.get_subject_list()
         expected_pulls = product.set.cards_per_box()
         next_order = video.box_set.count() + 1
         left_off = video.last_pull_timestamp()
@@ -98,7 +106,7 @@ def register_pulls(request):
     for pull in pulls:
         if pull['subset_name'] == '---':
             continue
-        player, c = Player.objects.get_or_create(player_name=pull['player_name'])
+        subject, c = Subject.objects.get_or_create(name=pull['name'])
 
         subset_id = get_subset_id(pull['subset_name'], pull['color'], subsets)
         if not subset_id:
@@ -110,8 +118,10 @@ def register_pulls(request):
         else:
             subset = Subset.objects.get(id=subset_id)
 
+        card, c = Card.objects.get_or_create(subset=subset, subject=subject)
+
         Pull.objects.create(
-            box=box, subset=subset, serial=pull['serial'], player=player,
+            box=box, card=card, serial=pull['serial'],
             front_timestamp=pull['front_timestamp'], damage=pull['damage'],
             back_timestamp=pull['back_timestamp'] or None
         )
