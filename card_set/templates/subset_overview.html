@@ -14,6 +14,9 @@
   {{ unique }} Unique pulled ({{ unique_percent|floatformat:2 }}% of checklist)<br>
   Percent found: {{ data.percentage_found|floatformat:2 }}%<br>
   Odds: {{ data.odds_per_box }}<br>
+  {% if not subset.serial_base and subset.checklist_size %}
+    Estimated {{ subset.estimated_population }} exist of each card in this set
+  {% endif %}
 {% endfor %}
 
 <h3>Cards Pulled</h3>

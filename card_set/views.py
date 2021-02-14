@@ -106,7 +106,7 @@ def register_pulls(request):
     for pull in pulls:
         if pull['subset_name'] == '---':
             continue
-        subject, c = Subject.objects.get_or_create(name=pull['name'])
+        subject, c = Subject.objects.get_or_create(name=pull['player_name'])
 
         subset_id = get_subset_id(pull['subset_name'], pull['color'], subsets)
         if not subset_id:

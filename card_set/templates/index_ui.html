@@ -141,15 +141,15 @@
         <div id="luck_indicator" class="normal">normal</div>
         <table id="pulls">
           <tr>
-            <td>Player</td><td>Front Timestamp</td><td>Subset</td><td>Serial</td><td>Damage</td><td>Back Timestamp</td>
+            <td>Subject</td><td>Front Timestamp</td><td>Subset</td><td>Serial</td><td>Damage</td><td>Back Timestamp</td>
           </tr>
           <tr id="pull_template" style="display: none">
             <td>
               <input type="text" class="manual_player">
               <select class="player">
                 <option value="---">----</option>
-                {% for player in players %}
-                  <option value="{{ player }}">{{ player }}</option>
+                {% for subject in subjects %}
+                  <option value="{{ subject }}">{{ subject }}</option>
                 {% endfor %}
               </select>
             </td>

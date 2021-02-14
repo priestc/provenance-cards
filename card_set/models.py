@@ -48,8 +48,31 @@ class Set(models.Model):
         boxes = Box.objects.filter(product__set=self).count()
         return math.floor(pulls / boxes)
 
-    def best_box_print_estimate(self):
-        pass
+    def best_subsets_for_estimation(self):
+        if self.product_set.count() > 1:
+            return
+        pop = models.F('checklist_size') + models.F('serial_base')
+        best_subsets = []
+        for subset in self.subset_set.annotate(pop=pop).order_by('-pop'):
+            if not best_subsets or best_subsets[-1].pop == subset.pop:
+                best_subsets.append(subset)
+        return best_subsets
+
+    def box_size_estimation(self):
+        sizes = []
+        for subset in self.best_subsets_for_estimation():
+            est = subset.estimate_set_size()
+            sizes.append(list(est.values())[0])
+        if not sizes:
+            return
+        return int(sum(sizes) / len(sizes))
+
+    def estimated_box_percentage(self):
+        est = self.box_size_estimation()
+        if not est:
+            return
+        boxes = Box.objects.filter(product__set=self).count()
+        return boxes / est * 100
 
     def all_subsets(self, categories=False):
         subsets = collections.defaultdict(list)
@@ -115,9 +138,8 @@ class Set(models.Model):
         return mapping
 
     def get_subject_list(self):
-        all_pulls = Pull.objects.filter()
         return list(
-            Card.objects.filter(pull__box__product__set=self).values_list('subject__name', flat=True).distinct()
+            Subject.objects.filter(card__subset__set=self).values_list('name', flat=True).distinct()
         )
 
 class Manufacturer(models.Model):
@@ -147,6 +169,15 @@ class Subset(models.Model):
             if self.checklist_size and self.serial_base
             else None
         )
+
+    def estimated_population(self):
+        if self.serial_base:
+            return
+        est = self.set.estimated_box_percentage() / 100.0
+        if not est:
+            return
+        pulled = Pull.objects.filter(card__subset=self).count()
+        return int((pulled / est) / self.checklist_size)
 
     def percent_indexed(self):
         indexed = {}
