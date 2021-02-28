@@ -156,6 +156,7 @@ class Subset(models.Model):
     set = models.ForeignKey("Set", on_delete=models.PROTECT)
     checklist_size = models.IntegerField(blank=True, null=True)
     shorthand = models.CharField(max_length=16, blank=True)
+    multi_base = models.BooleanField(default=False)
 
     def __str__(self):
         return "%s %s (%s)" % (self.set, self.name, self.verbose_color())
@@ -164,20 +165,29 @@ class Subset(models.Model):
         return verbose_color(self.serial_base, self.color)
 
     def total_population(self):
+        checklist_size = self.checklist_size or self.estimate_checklist_size()
+        serial_base = self.serial_base or self.estimated_population_each()
         return (
-            self.checklist_size * self.serial_base
-            if self.checklist_size and self.serial_base
+            checklist_size * serial_base
+            if checklist_size and serial_base
             else None
         )
 
     def estimated_population(self):
-        if self.serial_base:
-            return
-        est = self.set.estimated_box_percentage() / 100.0
-        if not est:
+        ebp = self.set.estimated_box_percentage() / 100.0
+        if not ebp:
             return
         pulled = Pull.objects.filter(card__subset=self).count()
-        return int((pulled / est) / self.checklist_size)
+        return int((pulled / ebp))
+
+    def estimated_population_each(self):
+        """
+        Used when serial_base is unknown. Use statistics to estimate what it
+        would be.
+        """
+        if self.serial_base:
+            raise Exception("No need to estimate when serial_base is already known")
+        return self.estimated_population() / (self.checklist_size or self.estimate_checklist_size())
 
     def percent_indexed(self):
         indexed = {}
@@ -205,11 +215,12 @@ class Subset(models.Model):
 
     def estimate_set_size(self):
         if not self.serial_base:
-            return
+            raise Exception("Don't use non serial numbered subsets to estimate size of total product")
 
         total_pop = self.total_population()
         if not total_pop:
-            return
+            raise Exception("total_pop is unknown")
+
         estimates = {}
         for product, data in self.percent_indexed().items():
             boxes_indexed = data['box_population']
@@ -231,8 +242,31 @@ class Subset(models.Model):
 
     def pull_count(self):
         summary = collections.defaultdict(lambda: 0)
+
+        for card in self.card_set.all():
+            summary[card.subject.name] = 0
+
         for pull in Pull.objects.filter(card__subset=self).values('card__subject__name'):
             summary[pull['card__subject__name']] += 1
+
+        if self.multi_base:
+            total_pop = sum(summary.values())
+            est_ss_pop = self.estimated_population()
+            summary_with_percentages = {}
+            expected_percentage = 100.0 / len(summary)
+
+            for item, count in summary.items():
+                percentage = 100.0 * count / total_pop
+                scarcity_factor = expected_percentage / percentage
+                disp_scarcity_factor = scarcity_factor if scarcity_factor > 1 else (-1 / scarcity_factor)
+                summary_with_percentages[item] = {
+                    'count': count,
+                    'percentage': percentage,
+                    'expected_percentage': expected_percentage,
+                    'scarcity_factor': disp_scarcity_factor,
+                    'estimated_population': int(est_ss_pop * percentage / 100.0)
+                }
+            return summary_with_percentages
 
         return dict(summary)
 
@@ -240,13 +274,19 @@ class Subset(models.Model):
         return Pull.objects.filter(card__subset=self).values("subject").distinct().count()
 
     def seen_percentage(self):
+        """
+        What percentage of each card has been seen before.
+        """
         if not self.serial_base:
             return
-        return 100.0 * self.seen_checklist_size() / self.checklist_size
+        return 100.0 * self.seen_checklist_size() / (self.checklist_size or self.estimate_checklist_size())
 
     def pulls_for_subject(self, subject):
         pulls = Pull.objects.filter(card__subset=self, card__subject=subject)
         return pulls
+
+    def estimate_checklist_size(self):
+        return Card.objects.filter(subset=self).count()
 
     class Meta:
         ordering = ("-serial_base", )
@@ -294,6 +334,10 @@ class Video(models.Model):
             "date": datetime.datetime.strptime(date, "%Y-%m-%d")
         }
 
+    @classmethod
+    def full_archive(cls):
+        [x.archive() for x in cls.objects.all()]
+
 
     def update_info(self):
         if self.date:
@@ -320,7 +364,7 @@ class Video(models.Model):
     def display_boxes(self):
         disp = ""
         for b in self.box_set.order_by('order'):
-            disp += "Box %s \n%s\n\n" % (b.order, b.display())
+            disp += "Box %s (%s) \n%s\n\n" % (b.id, b.order, b.display())
         return disp
 
     def next_index(self):
@@ -419,12 +463,18 @@ class Product(models.Model):
     def cards_per_box(self):
         return self.cards_per_pack * self.packs_per_box
 
+    def pull_count(self):
+        return Pull.objects.filter(box__product=self).count()
+
+    def type_plural(self):
+        if self.type.endswith("x"):
+            return "%ses" % self.type
+
     def best_examples(self):
         return self.box_set.order_by('-scarcity_score')[:5]
 
     def worst_examples(self):
-        boxes = list(self.box_set.order_by('scarcity_score')[:5])
-        boxes.reverse()
+        boxes = self.box_set.order_by('scarcity_score')[:5]
         return boxes
 
     def get_luck_ranges(self):
@@ -475,7 +525,7 @@ class Box(models.Model):
     scarcity_score = models.FloatField(blank=True, default=0)
 
     def __str__(self):
-        return "%s-%s" % (self.video, self.order)
+        return "%s %s-%s" % (self.id, self.video, self.order)
 
     def pull_count(self):
         return Pull.objects.filter(box=self).count()
@@ -533,20 +583,23 @@ class Card(models.Model):
     card_number = models.CharField(max_length=12, blank=True)
 
     def front_video(self):
+        return self.make_video("front")
+
+    def back_video(self):
+        return self.make_video("back")
+
+    def make_video(self, side):
         clips = []
         for pull in self.pull_set.all():
-            if not pull.front_timestamp:
+            ts = getattr(pull, "%s_timestamp" % side)
+            if not ts:
                 continue
-            p = pull.box.video.get_archive()
-            if  p.endswith("mkv"):
-                continue
-            ts = pull.front_timestamp
-            print(VideoFileClip(p).size)
-            v = VideoFileClip(p).subclip(ts, ts+5)
+            arch = pull.box.video.get_archive()
+            v = VideoFileClip(arch).subclip(ts, ts+5)
             clips.append(v)
 
         final = concatenate_videoclips(clips, method="compose")
-        final.write_videofile("composite.mp4")
+        final.write_videofile("%s-%s.mp4" % (self.id, side))
 
     def __str__(self):
         return "%s %s" % (self.subset, self.subject)

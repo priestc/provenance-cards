@@ -24,7 +24,10 @@ def subset_overview(request, subset_id):
     statistics = subset.percent_indexed()
     summary = subset.pull_count()
 
-    unique = len(summary.keys())
+    if subset.multi_base:
+        unique = len([k for k,v in summary.items() if v['count'] > 0])
+    else:
+        unique = len([k for k,v in summary.items() if v > 0])
     if subset.checklist_size:
         unique_percent = unique / subset.checklist_size * 100
 

@@ -21,7 +21,7 @@ admin.site.register(Video, VideoAdmin)
 admin.site.register(Breaker)
 
 class SubsetAdmin(admin.ModelAdmin):
-    list_display = ['set', 'name', 'color', 'serial_base', 'shorthand', 'checklist_size', 'estimated_set_size']
+    list_display = ['set', 'name', 'color', 'serial_base', 'shorthand', 'checklist_size']
 
     def estimated_set_size(self, obj):
         disp = ""
@@ -45,7 +45,7 @@ class PullInline(admin.TabularInline):
     model = Pull
 
 class BoxAdmin(admin.ModelAdmin):
-    list_display = ['id', 'video', 'order', 'pull_count', 'scarcity_rank', 'how_lucky']
+    list_display = ['id', 'video', 'order', 'pull_count', 'scarcity_score', 'scarcity_rank', 'how_lucky']
     inlines = [
         PullInline
     ]

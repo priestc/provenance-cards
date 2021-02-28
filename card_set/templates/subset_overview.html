@@ -1,28 +1,64 @@
-<h1>Trading Card Provenance</h1>
+<html>
+  <head>
+    <style>
+      /* Sortable tables */
+      table.sortable thead {
+          background-color:#eee;
+          color:#666666;
+          font-weight: bold;
+          cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+  {% load static %}
+  <h1>Trading Card Provenance</h1>
+  <script src="{% static 'sorttable.js' %}"></script>
 
-<h2>{{ subset }}</h2>
+  <h2>{{ subset }}</h2>
 
-<a href="/set_overview?set={{ subset.set.id }}">{{ subset.set }}</a>
+  <a href="/set_overview?set={{ subset.set.id }}">{{ subset.set }}</a>
 
-<h3>Statistics</h3>
+  <h3>Statistics</h3>
 
-{% for product, data in statistics.items %}
-  {{ data.found }} Found in {{ product.type }}<br>
-  At least one found in {{ data.boxes_found_in }} out of a total of {{ data.box_population }} boxes.<br>
-  Expected to exist: {{ data.expected }}<br>
-  {{ subset.checklist_size }} cards in the subset checklist.<br>
-  {{ unique }} Unique pulled ({{ unique_percent|floatformat:2 }}% of checklist)<br>
-  Percent found: {{ data.percentage_found|floatformat:2 }}%<br>
-  Odds: {{ data.odds_per_box }}<br>
-  {% if not subset.serial_base and subset.checklist_size %}
-    Estimated {{ subset.estimated_population }} exist of each card in this set
-  {% endif %}
-{% endfor %}
+  {% for product, data in statistics.items %}
+    {{ data.found }} Found in {{ product.type }}<br>
+    At least one found in {{ data.boxes_found_in }} out of a total of {{ data.box_population }} boxes.<br>
+    {% if subset.checklist_size %}{{ subset.checklist_size }} cards in the subset checklist.<br>{% endif %}
+    {{ unique }} Unique pulled {% if subset.checklist_size %}({{ unique_percent|floatformat:2 }}% of checklist){% endif %}<br>
+    Percent of entire population found: {{ data.percentage_found|floatformat:2 }}%<br>
+    Odds: {{ data.odds_per_box }}<br>
+    Expected to exist: {{ data.expected|floatformat:0 }}<br>
+    {% if not subset.serial_base and subset.checklist_size %}
+      Estimated {{ subset.estimated_population_each|floatformat:0 }} exist of each card in this set
+    {% endif %}
+  {% endfor %}
 
-<h3>Cards Pulled</h3>
+  <h3>Cards Pulled</h3>
 
-<table>
-{% for card, data in summary.items %}
-  <tr><th><a href="/card_overview/{{ subset.id }}/{{ card|slugify }}">{{ card }}</a></th><td>{{data}}</td></tr>
-{% endfor %}
-</table>
+  <table border="1" class="sortable">
+    {% if subset.multi_base %}
+    <tr><th>Subject</th><td>Found</td><td>Percent</td><td>Expected <br>Percentage</td><td>Scarcity <br>Factor</td><td>Estimated <br>Population</td></tr>
+    {% else %}
+    <tr><th>Subject</th><td>Found</td></tr>
+    {% endif %}
+  {% for card, data in summary.items %}
+    {% if subset.multi_base %}
+    <tr>
+      <th><a href="/card_overview/{{ subset.id }}/{{ card|slugify }}">{{ card }}</a></th>
+      <td>{{ data.count }}</td>
+      <td>{{ data.percentage|floatformat:2 }}%</td>
+      <td>{{ data.expected_percentage|floatformat:2 }}%</td>
+      <td>{{ data.scarcity_factor|floatformat:2 }}</td>
+      <td>{{ data.estimated_population }}</td>
+    </tr>
+    {% else %}
+    <tr>
+      <th><a href="/card_overview/{{ subset.id }}/{{ card|slugify }}">{{ card }}</a></th>
+      <td>{{ data }}</td>
+    </tr>
+    {% endif %}
+  {% endfor %}
+  </table>
+  </body>
+</html>

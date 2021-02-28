@@ -1,0 +1,22 @@
+<h1>Trading Card Provenance</h1>
+
+<h2>{{ subset }} {{ subject }}</h2>
+
+Pulled {{ pulls|length }} times.
+
+{% if pulls %}
+<h3>Pulls</h3>
+<table>
+  <tr>
+    <td>Serial</td><td>Date Pulled</td><td>Breaker</td><td>Link</td>
+  </tr>
+{% for pull in pulls %}
+<tr>
+  <td>{{ pull.show_identifier }}</td>
+  <td>{{ pull.box.video.date|date:"M d, Y" }}</td>
+  <td>{{ pull.box.video.breaker }}</td>
+  <td>{{ pull.video_link|safe }}</td>
+</tr>
+{% endfor %}
+</table>
+{% endif %}

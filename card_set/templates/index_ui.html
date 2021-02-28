@@ -8,6 +8,8 @@
 
     <script src="{% static 'html2canvas.min.js' %}"></script>
     <script src="https://www.youtube.com/player_api"></script>
+    <link rel="stylesheet" href="{% static 'awesomplete.css' %}" />
+    <script src="{% static 'awesomplete.min.js' %}" async></script>
 
     <script>
       var shorthands = {{ shorthands_json|safe|default:"null" }};
@@ -64,9 +66,6 @@
       #left_side {
         float: left;
       }
-      .manual_player {
-        display: none;
-      }
       .manual_color {
         display: none;
       }
@@ -112,6 +111,12 @@
 
     </style>
 
+    <datalist id="subjects">
+      {% for subject in subjects %}
+        <option>{{ subject }}</option>
+      {% endfor %}
+    </datalist>
+
     <h1>Card Provanance</h1>
     <h2>Index New {{ product }}</h2>
 
@@ -145,13 +150,7 @@
           </tr>
           <tr id="pull_template" style="display: none">
             <td>
-              <input type="text" class="manual_player">
-              <select class="player">
-                <option value="---">----</option>
-                {% for subject in subjects %}
-                  <option value="{{ subject }}">{{ subject }}</option>
-                {% endfor %}
-              </select>
+              <input type="text" class="manual_player" list="subjects" data-tabSelect="true" data-autofirst="true" data-minchars="3">
             </td>
             <td>
               <input class="snap" type="button" value="Snap">
@@ -195,7 +194,7 @@
     <script>
       $("body").on("keyup", ".shorthand", function(){
         var tthis = $(this)
-        var shorthand = tthis.val();
+        var shorthand = tthis.val().toLowerCase();
         var selection = shorthands[shorthand];
         if(selection) {
           var color = selection[1];
@@ -330,7 +329,7 @@
         var pulls = [];
         $(".pull").each(function(i, p){
           var pull = $(p);
-          var player = pull.find(".manual_player").val() || pull.find(".player").val();
+          var player = pull.find(".manual_player").val();
           var color = pull.find(".manual_color").val() || pull.find(".color").val();
           var subset = pull.find(".manual_subset").val() || pull.find(".subset").val();
           pulls.push({
