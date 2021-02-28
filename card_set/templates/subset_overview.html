@@ -1,4 +1,5 @@
 <html>
+{% load static %}
   <head>
     <style>
       /* Sortable tables */
@@ -9,11 +10,12 @@
           cursor: default;
       }
     </style>
+    <script src="{% static 'sorttable.js' %}"></script>
   </head>
   <body>
-  {% load static %}
+
   <h1>Trading Card Provenance</h1>
-  <script src="{% static 'sorttable.js' %}"></script>
+
 
   <h2>{{ subset }}</h2>
 
