@@ -1,0 +1,164 @@
+<style>
+  #card_template {
+    display: none
+  }
+  #cards {
+    margin: 20px;
+    display: none;
+  }
+  #cards tr:nth-child(even){
+    background: #dfdfdf;
+  }
+  #cards tr:nth-child(odd){
+    background: #a6a6a6;
+  }
+  #cards tr:first-child {
+    background: none;
+    font-size: large;
+  }
+  #cards td {
+    vertical-align: middle;
+    padding: 2px;
+  }
+  #cards td select, #cards td input.shorthand {
+    width: 100%;
+  }
+  .manual_color {
+    display: none;
+  }
+  .manual_subset {
+    display: none;
+  }
+</style>
+
+<datalist id="subjects">
+  {% for subject in subjects %}
+    <option>{{ subject }}</option>
+  {% endfor %}
+</datalist>
+
+<table id="cards">
+  <tr>
+    <td>Subject</td><td>Front Timestamp</td><td>Subset</td><td>Serial</td><td>Damage</td><td>Back Timestamp</td>
+  </tr>
+  <tr id="card_template" style="display: none">
+    <td>
+      <input type="text" class="manual_player" list="subjects" data-tabSelect="true" data-autofirst="true" data-minchars="3">
+    </td>
+    <td>
+      <input class="snap" type="button" value="Snap">
+      <input class="ts front_timestamp" type="text" tabindex="-1">
+    </td>
+    <td>
+      <input type="text" class="manual_subset">
+      <select class="subset" tabindex="-1">
+        <option value="---">----</option>
+        {% for name in dropdowns.name %}
+          <option value="{{ name.0 }}">{{ name.0 }}</option>
+        {% endfor %}
+      </select>
+      <br>
+      <input type="text" class="manual_color">
+      <select class="color" tabindex="-1">
+        <option value="---">----</option>
+        {% for color in dropdowns.color %}
+          <option value="{{ color.0 }}">{{ color.0 }}</option>
+        {% endfor %}
+      </select>
+      <br><input class="shorthand" type="text">
+    </td>
+    <td>
+      <input class="serial" type="text">
+    </td>
+    <td>
+      <input class="damage" type="text" tabindex="-1">
+    </td>
+    <td>
+      <input class="snap" type="button" value="Snap" tabindex="-1">
+      <input class="ts back_timestamp" type="text" tabindex="-1">
+    </td>
+  </tr>
+</table>
+<button id="new_card">New Card</button>
+
+<script>
+  function collect_cards_from_form() {
+    var cards = [];
+    $(".card").each(function(i, p){
+      var card = $(p);
+      var player = card.find(".manual_player").val();
+      var color = card.find(".manual_color").val() || card.find(".color").val();
+      var subset = card.find(".manual_subset").val() || card.find(".subset").val();
+      cards.push({
+        'front_timestamp': card.find(".front_timestamp").val(),
+        'back_timestamp': card.find(".back_timestamp").val(),
+        'subset_name': subset,
+        'color': color,
+        'serial': card.find(".serial").val(),
+        'subject': player,
+        'damage': card.find(".damage").val(),
+      })
+    });
+    return cards
+  }
+  $(document).ready(function() {
+    function update_luck() {
+      return
+    }
+    function is_multi_base_numbered(subset_name, color) {
+      for(subset of multi_base_numbered) {
+        if(subset_name + color == subset[0] + subset[1]) {
+          return true
+        }
+      }
+      return false
+    }
+
+    $("body").on("keyup", ".shorthand", function(){
+      var tthis = $(this)
+      var shorthand = tthis.val().toLowerCase();
+      var selection = shorthands[shorthand];
+      if(selection) {
+        var color = selection[1];
+        var subset = selection[0]
+        tthis.parent().find(".color").val(color);
+        update_luck();
+        tthis.parent().find(".subset").val(subset);
+        if(is_multi_base_numbered(subset, color)) {
+          tthis.parent().find(".color").dblclick()
+          tthis.parent().find(".manual_color").val(tthis.parent().find(".color").val());
+        }
+      }
+    });
+
+    $("#new_card").click(function(){
+      var next_index = $(".card").length + 1;
+      var t = $("#card_template").clone().removeAttr('id').addClass("card");
+      t.appendTo($("#cards"));
+      t.show().data("index", next_index);
+    });
+
+    if(fixed_subset) {
+      $(".subset").prop("disabled", true);
+      if(multi_base_numbered) {
+        1;
+      }
+    }
+
+    function make_double_clicker(textbox, dropdown) {
+      $("body").on("dblclick", textbox, function(){
+        var t = $(this);
+        t.hide();
+        t.parent().find(dropdown).show();
+      });
+      $("body").on("dblclick", dropdown, function(){
+        var t = $(this);
+        t.hide();
+        t.parent().find(textbox).show();
+      });
+    }
+    make_double_clicker(".manual_subset", ".subset");
+    make_double_clicker(".manual_color", ".color");
+  });
+
+</script>

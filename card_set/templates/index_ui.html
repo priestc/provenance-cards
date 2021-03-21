@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 {% load static %}
   <body>
@@ -18,35 +19,14 @@
       var youtube_identifier = "{{ youtube_identifier }}";
       var left_off = {{ left_off|default:0|floatformat:0 }};
       var luck_ranges = {{ luck_ranges|safe|default:"null" }};
+      var multi_base_numbered = [{% for subset in multi_base_numbered %}
+          ['{{ subset.name }}', '{{ subset.verbose_color }}'],
+      {% endfor %}]
     </script>
 
     <style>
       #right_side {
         float: left;
-      }
-      #pull_template {
-        display: none
-      }
-      #pulls {
-        margin: 20px;
-        display: none;
-      }
-      #pulls tr:nth-child(even){
-        background: #dfdfdf;
-      }
-      #pulls tr:nth-child(odd){
-        background: #a6a6a6;
-      }
-      #pulls tr:first-child {
-        background: none;
-        font-size: large;
-      }
-      #pulls td {
-        vertical-align: middle;
-        padding: 2px;
-      }
-      #pulls td select, #pulls td input.shorthand {
-        width: 100%;
       }
       input.serial {
         width: 5em
@@ -65,12 +45,6 @@
       }
       #left_side {
         float: left;
-      }
-      .manual_color {
-        display: none;
-      }
-      .manual_subset {
-        display: none;
       }
       #luck_indicator {
         text-align: center;
@@ -111,12 +85,6 @@
 
     </style>
 
-    <datalist id="subjects">
-      {% for subject in subjects %}
-        <option>{{ subject }}</option>
-      {% endfor %}
-    </datalist>
-
     <h1>Card Provanance</h1>
     <h2>Index New {{ product }}</h2>
 
@@ -135,7 +103,6 @@
         <div id="ytplayer"></div>
 
         <div id="button_area">
-          <button id="new_card">New Card</button>
           <input type="button" id="send" value="Send">
           Order: <input type="text" id="order" value="{{ next_order }}">
           <input type="button" id="slow" value="slow"> <input type="button" id="normal" value="normal">
@@ -144,67 +111,13 @@
 
       <div id="right_side">
         <div id="luck_indicator" class="normal">normal</div>
-        <table id="pulls">
-          <tr>
-            <td>Subject</td><td>Front Timestamp</td><td>Subset</td><td>Serial</td><td>Damage</td><td>Back Timestamp</td>
-          </tr>
-          <tr id="pull_template" style="display: none">
-            <td>
-              <input type="text" class="manual_player" list="subjects" data-tabSelect="true" data-autofirst="true" data-minchars="3">
-            </td>
-            <td>
-              <input class="snap" type="button" value="Snap">
-              <input class="ts front_timestamp" type="text" tabindex="-1">
-            </td>
-            <td>
-              <input type="text" class="manual_subset">
-              <select class="subset" tabindex="-1">
-                <option value="---">----</option>
-                {% for name in dropdowns.name %}
-                  <option value="{{ name.0 }}">{{ name.0 }}</option>
-                {% endfor %}
-              </select>
-              <br>
-              <input type="text" class="manual_color">
-              <select class="color" tabindex="-1">
-                <option value="---">----</option>
-                {% for color in dropdowns.color %}
-                  <option value="{{ color.0 }}">{{ color.0 }}</option>
-                {% endfor %}
-              </select>
-              <br><input class="shorthand" type="text">
-            </td>
-            <td>
-              <input class="serial" type="text">
-            </td>
-            <td>
-              <input class="damage" type="text" tabindex="-1">
-            </td>
-            <td>
-              <input class="snap" type="button" value="Snap" tabindex="-1">
-              <input class="ts back_timestamp" type="text" tabindex="-1">
-            </td>
-          </tr>
-        </table>
+        {% include 'card_form.html' %}
       </div>
     </div>
 
     <div id="screenshot"></div>
 
     <script>
-      $("body").on("keyup", ".shorthand", function(){
-        var tthis = $(this)
-        var shorthand = tthis.val().toLowerCase();
-        var selection = shorthands[shorthand];
-        if(selection) {
-          var color = selection[1];
-          var subset = selection[0]
-          tthis.parent().find(".color").val(color);
-          update_luck();
-          tthis.parent().find(".subset").val(subset);
-        }
-      });
-
       $("body").on("click", ".snap", function(){
         var index = $(this).closest("tr").data("index");
         var ts = get_timestamp(index);
@@ -215,19 +128,12 @@
         update_luck();
       });
 
-      $("#new_card").click(function(){
-        var next_index = $(".pull").length + 1;
-        var t = $("#pull_template").clone().removeAttr('id').addClass("pull");
-        t.appendTo($("#pulls"))
-        t.show().data("index", next_index)
-      });
-
       $("#send").click(function(){
         var order = $("#order").val();
         $.ajax({
           "url": "/register_pulls/",
           "data": {
-            'pulls': JSON.stringify(collect_pulls()),
+            'pulls': JSON.stringify(collect_cards_from_form()),
             'product_id': product_id, 'video_id': youtube_identifier, 'order': order
           },
           "type": "post"
@@ -235,22 +141,6 @@
           location.reload();
         });
       });
-
-      function make_double_clicker(textbox, dropdown) {
-        $("body").on("dblclick", textbox, function(){
-          var t = $(this);
-          t.hide();
-          t.parent().find(dropdown).show();
-        });
-        $("body").on("dblclick", dropdown, function(){
-          var t = $(this);
-          t.hide();
-          t.parent().find(textbox).show();
-        });
-      }
-      make_double_clicker(".manual_subset", ".subset");
-      make_double_clicker(".manual_player", ".player");
-      make_double_clicker(".manual_color", ".color");
 
       $("#slow").click(function(){
         player.setPlaybackRate(0.15);
@@ -325,26 +215,6 @@
         return "normal"
       }
 
-      function collect_pulls() {
-        var pulls = [];
-        $(".pull").each(function(i, p){
-          var pull = $(p);
-          var player = pull.find(".manual_player").val();
-          var color = pull.find(".manual_color").val() || pull.find(".color").val();
-          var subset = pull.find(".manual_subset").val() || pull.find(".subset").val();
-          pulls.push({
-            'front_timestamp': pull.find(".front_timestamp").val(),
-            'back_timestamp': pull.find(".back_timestamp").val(),
-            'subset_name': subset,
-            'color': color,
-            'serial': pull.find(".serial").val(),
-            'player_name': player,
-            'damage': pull.find(".damage").val(),
-          })
-        });
-        return pulls
-      }
-
       function get_timestamp(pull_index) {
         var shot_id = 'screenshot'
 
@@ -368,7 +238,7 @@
             playerVars: {start: left_off}
           });
 
-          $("#pulls").show();
+          $("#cards").show();
           $("#button_area").show();
         }
       });

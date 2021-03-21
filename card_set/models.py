@@ -78,25 +78,29 @@ class Set(models.Model):
         subsets = collections.defaultdict(list)
         autographs = collections.defaultdict(list)
 
-        for subset in self.subset_set.values('name', 'color', 'serial_base', 'id', 'checklist_size'):
-            color = subset['color']
-            serial_base = subset['serial_base']
-            name = subset['name']
+        for subset in self.subset_set.all():
+            color = subset.color
+            serial_base = subset.serial_base
+            name = subset.name
 
-            if "Auto" in name:
+            section = subsets
+            if subset.autographed:
                 section = autographs
-            else:
-                section = subsets
 
-            if subset['checklist_size'] and serial_base:
-                population = -1 * int(subset['checklist_size']) * int(serial_base)
+            if subset.checklist_size and serial_base:
+                population = -1 * int(subset.checklist_size) * int(serial_base)
             else:
                 population = 0
 
-            section[name].append({
-                "color": color, "serial_base": serial_base, 'id': subset['id'],
+            info = {
+                "color": color, "serial_base": serial_base, 'id': subset.id,
                 "pop": population
-            })
+            }
+
+            if subset.multi_base_numbered:
+                info['multi_base_numbered'] = True
+
+            section[name].append(info)
 
         if categories:
             return {
@@ -116,9 +120,10 @@ class Set(models.Model):
                     sort = str(1 * data['serial_base']).zfill(5)
                 else:
                     sort = "999999999999" + data['color']
-                menus['color'].append([
+                payload = [
                     verbose_color(data['serial_base'], data['color']), sort
-                ])
+                ]
+                menus['color'].append(payload)
                 accumulated_pop += data['pop']
 
             menus['name'].append([name, accumulated_pop])
@@ -157,6 +162,12 @@ class Subset(models.Model):
     checklist_size = models.IntegerField(blank=True, null=True)
     shorthand = models.CharField(max_length=16, blank=True)
     multi_base = models.BooleanField(default=False)
+    multi_base_numbered = models.BooleanField(default=False)
+    autographed = models.BooleanField(default=False)
+    comc_color = models.TextField(default='', blank=True)
+    comc_color_blank = models.BooleanField(default=False, blank=True)
+    comc_name = models.TextField(default='', blank=True)
+    comc_name_blank = models.BooleanField(default=False, blank=True)
 
     def __str__(self):
         return "%s %s (%s)" % (self.set, self.name, self.verbose_color())
@@ -165,8 +176,12 @@ class Subset(models.Model):
         return verbose_color(self.serial_base, self.color)
 
     def total_population(self):
+        if self.multi_base_numbered:
+            return sum(c.serial_base for c in self.card_set.all())
+
         checklist_size = self.checklist_size or self.estimate_checklist_size()
         serial_base = self.serial_base or self.estimated_population_each()
+
         return (
             checklist_size * serial_base
             if checklist_size and serial_base
@@ -177,7 +192,7 @@ class Subset(models.Model):
         ebp = self.set.estimated_box_percentage() / 100.0
         if not ebp:
             return
-        pulled = Pull.objects.filter(card__subset=self).count()
+        pulled = self.get_pulls().count()
         return int((pulled / ebp))
 
     def estimated_population_each(self):
@@ -234,11 +249,14 @@ class Subset(models.Model):
 
 
     def find_from_product(self, product):
-        pulls = Pull.objects.filter(box__product=product, card__subset=self).order_by('card__subject')
+        pulls = self.get_pulls().filter(box__product=product).order_by('card__subject')
         return {
             'matched_boxes': [p.box for p in pulls],
             'total_found': pulls
         }
+
+    def get_pulls(self):
+        return Pull.objects.filter(card__subset=self)
 
     def pull_count(self):
         summary = collections.defaultdict(lambda: 0)
@@ -246,7 +264,7 @@ class Subset(models.Model):
         for card in self.card_set.all():
             summary[card.subject.name] = 0
 
-        for pull in Pull.objects.filter(card__subset=self).values('card__subject__name'):
+        for pull in self.get_pulls().values('card__subject__name'):
             summary[pull['card__subject__name']] += 1
 
         if self.multi_base:
@@ -270,8 +288,20 @@ class Subset(models.Model):
 
         return dict(summary)
 
+    def multibase_numbered_pull_count(self):
+        summary = {}
+
+        for pull in self.get_pulls().values('card__subject__name', 'card__serial_base'):
+            serial_base = pull['card__serial_base']
+            name = pull['card__subject__name']
+            key = "%s /%s" % (name, serial_base)
+            count = summary.get(key, {'count': 0})['count']
+            summary[key] = {'name': name, 'count': count + 1, 'serial_base': serial_base}
+
+        return summary
+
     def seen_checklist_size(self):
-        return Pull.objects.filter(card__subset=self).values("subject").distinct().count()
+        return self.get_pulls().values("subject").distinct().count()
 
     def seen_percentage(self):
         """
@@ -282,11 +312,26 @@ class Subset(models.Model):
         return 100.0 * self.seen_checklist_size() / (self.checklist_size or self.estimate_checklist_size())
 
     def pulls_for_subject(self, subject):
-        pulls = Pull.objects.filter(card__subset=self, card__subject=subject)
-        return pulls
+        return self.get_pulls().filter(card__subject=subject)
 
     def estimate_checklist_size(self):
         return Card.objects.filter(subset=self).count()
+
+    def get_comc_link(self):
+        if self.comc_color_blank:
+            color = ''
+        else:
+            raw_color = self.comc_color or self.color
+            color = "_-_%s" % raw_color.title() if raw_color else ""
+
+        subset = self.name
+        if self.comc_name:
+            subset = self.comc_name
+
+        return "https://www.comc.com/Cards/Baseball/{year}/{manufacturer}_{set}_-_{subset}{color},sh,i100".format(
+            manufacturer=self.set.manufacturer, set=self.set.name.replace(" ", "_"),
+            subset=subset.replace(" ", "_"), color=color, year=self.set.year
+        )
 
     class Meta:
         ordering = ("-serial_base", )
@@ -474,8 +519,18 @@ class Product(models.Model):
         return self.box_set.order_by('-scarcity_score')[:5]
 
     def worst_examples(self):
-        boxes = self.box_set.order_by('scarcity_score')[:5]
-        return boxes
+        return self.box_set.order_by('scarcity_score')[:5]
+
+    def median_examples(self):
+        total_size = self.box_set.count()
+        median = int(total_size / 2.0)
+        all_boxes = self.box_set.order_by('scarcity_score')
+        median_boxes = []
+        for i in range(-2, 3):
+            the_rank = median + i
+            median_boxes.append([the_rank, all_boxes[the_rank]])
+
+        return median_boxes
 
     def get_luck_ranges(self):
         all_boxes = Box.objects.filter(product=self)
@@ -539,8 +594,19 @@ class Box(models.Model):
     def calculate_scarcity_score(self):
         score = 0
         for pull in self.pull_set.select_related('card__subset').all():
-            sb = pull.card.subset.serial_base
-            score += 0 if not sb else 1.0 / sb
+            sb = (
+                pull.card.statistical_serial_base or
+                pull.card.serial_base or
+                pull.card.subset.serial_base
+            )
+
+            print("using", sb, "as serial base")
+            this_score = 0 if not sb else 1.0 / sb # avoiding divide by zero
+            if pull.card.subset.autographed:
+                this_score *= 2
+
+            score += this_score
+
         self.scarcity_score = score
         self.save()
         return score
@@ -571,16 +637,69 @@ class Box(models.Model):
     def hits(self):
         hits = []
         for pull in self.pull_set.select_related("card__subset").order_by('card__subset__serial_base'):
-            sb = pull.card.subset.serial_base
+            sb = pull.card.serial_base or pull.card.subset.serial_base
             if sb:
                 icon = "<span class='hit_icon'>/%s</span>" % sb
                 hits.append(icon)
         return " ".join(hits)
 
+
+def clean_color(color):
+    if "Unnumbered" in color:
+        serial_base = None
+        pre_serial = color[:-10]
+    elif "/" in color:
+        pre_serial, serial_base = color.split("/")
+        serial_base = int(serial_base)
+
+    cleaned_color = pre_serial.strip()
+    return cleaned_color, serial_base
+
 class Card(models.Model):
     subject = models.ForeignKey('Subject', on_delete=models.PROTECT)
     subset = models.ForeignKey('Subset', on_delete=models.PROTECT)
     card_number = models.CharField(max_length=12, blank=True)
+    serial_base = models.IntegerField(blank=True, null=True) # only for subsets with multi_base_numbered==True
+
+    @classmethod
+    def get_card(cls, subset_id, card_form_line, set):
+        subject, c = Subject.objects.get_or_create(name=card_form_line['subject'])
+        card_opts = {}
+
+        if not subset_id:
+            # never before seen color and serial base combination, make new subset.
+            cleaned_color, serial_base = clean_color(card_form_line['color'])
+            subset = Subset.objects.create(
+                set=set, serial_base=serial_base, name=card_form_line['subset_name'],
+                color=cleaned_color
+            )
+        else:
+            if type(subset_id) is tuple:
+                subset_id, serial_base = subset_id
+                card_opts = {'serial_base': serial_base}
+
+            subset = Subset.objects.get(id=subset_id)
+
+        if 'card_number' in card_form_line:
+            card_opts['card_number'] = card_form_line['card_number']
+
+        card, c = cls.objects.get_or_create(subset=subset, subject=subject, **card_opts)
+        return card
+
+    @property
+    def statistical_serial_base(self):
+        if self.subset.multi_base:
+            return self.multi_base_population()
+        if not self.subset.serial_base:
+            return self.subset.estimated_population_each()
+
+    def multi_base_population(self):
+        subset_estimated_population = self.subset.estimated_population()
+        subset_population = self.subset.get_pulls().count()
+        found = self.subset.get_pulls().filter(card__subject=self.subject).count()
+        percentage = found / subset_population
+        base_pop = subset_estimated_population * percentage
+        return base_pop
 
     def front_video(self):
         return self.make_video("front")
@@ -602,7 +721,31 @@ class Card(models.Model):
         final.write_videofile("%s-%s.mp4" % (self.id, side))
 
     def __str__(self):
-        return "%s %s" % (self.subset, self.subject)
+        if self.subset.multi_base_numbered:
+            subset = "%s %s %s" % (
+                self.subset.set, self.subset.name, self.subset.color
+            )
+        else:
+            subset = self.subset
 
-    class Mega:
+        card_number = " #%s " % self.card_number if self.card_number else ' '
+        return "%s%s%s" % (subset, card_number, self.subject)
+
+    def get_serial_base(self):
+        if self.subset.multi_base:
+            return self.serial_base
+        return self.subset.serial_base
+
+    class Meta:
         ordering = ('subject__name', 'subset__name')
+
+
+def make_multibase(base_subset, all_subsets):
+    base_subset.multi_base_numbered = True
+    base_subset.save()
+
+    for card in Card.objects.filter(subset__in=all_subsets):
+        card.serial_base = card.subset.serial_base
+        card.subset = base_subset
+        card.save()
+        print(card)

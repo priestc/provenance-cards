@@ -4,7 +4,7 @@ from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import Set, Subset, Video, Product, Pull, Box, Subject, Card
+from .models import Set, Subset, Video, Product, Pull, Box, Subject, Card, clean_color
 
 def set_overview(request):
     set_id = request.GET['set']
@@ -22,9 +22,13 @@ def subset_overview(request, subset_id):
     subset = Subset.objects.get(pk=subset_id)
 
     statistics = subset.percent_indexed()
-    summary = subset.pull_count()
 
-    if subset.multi_base:
+    if subset.multi_base_numbered:
+        summary = subset.multibase_numbered_pull_count()
+    else:
+        summary = subset.pull_count()
+
+    if subset.multi_base or subset.multi_base_numbered:
         unique = len([k for k,v in summary.items() if v['count'] > 0])
     else:
         unique = len([k for k,v in summary.items() if v > 0])
@@ -81,6 +85,7 @@ def index_ui(request, product_id, youtube_identifier=None):
         expected_pulls = product.set.cards_per_box()
         next_order = video.box_set.count() + 1
         left_off = video.last_pull_timestamp()
+        multi_base_numbered = Subset.objects.filter(set__product=product, multi_base_numbered=True)
 
     return render(request, "index_ui.html", locals())
 
@@ -97,6 +102,20 @@ def register_video(request):
         "video_id": video.id, "created": c, "next_index": video.next_index()
     })
 
+
+def get_subset_id(subset_name, color, subsets):
+    subset_colors = subsets[subset_name]
+
+    cleaned_color, serial_base = clean_color(color)
+    for subset_color in subset_colors:
+        if subset_color['color'] == cleaned_color:
+            if 'multi_base_numbered' in subset_color:
+                return subset_color['id'], serial_base
+            if serial_base == subset_color['serial_base']:
+                return subset_color['id']
+
+    return None
+
 @csrf_exempt
 def register_pulls(request):
     product = Product.objects.get(id=request.POST['product_id'])
@@ -109,46 +128,20 @@ def register_pulls(request):
     for pull in pulls:
         if pull['subset_name'] == '---':
             continue
-        subject, c = Subject.objects.get_or_create(name=pull['player_name'])
 
+        new_pulls = []
         subset_id = get_subset_id(pull['subset_name'], pull['color'], subsets)
-        if not subset_id:
-            cleaned_color, serial_base = clean_color(pull['color'])
-            subset = Subset.objects.create(
-                set=product.set, serial_base=serial_base, name=pull['subset_name'],
-                color=cleaned_color
-            )
-        else:
-            subset = Subset.objects.get(id=subset_id)
-
-        card, c = Card.objects.get_or_create(subset=subset, subject=subject)
-
-        Pull.objects.create(
-            box=box, card=card, serial=pull['serial'],
-            front_timestamp=pull['front_timestamp'], damage=pull['damage'],
-            back_timestamp=pull['back_timestamp'] or None
-        )
+        try:
+            new_pulls.append(Pull.objects.create(
+                box=box, card=Card.get_card(subset_id, pull, product.set), serial=pull['serial'],
+                front_timestamp=pull['front_timestamp'], damage=pull['damage'],
+                back_timestamp=pull['back_timestamp'] or None
+            ))
+        except:
+            for new_pull in new_pulls:
+                new_pull.delete()
+            box.delete()
+            raise
 
     box.calculate_scarcity_score()
     return HttpResponse("OK")
-
-def get_subset_id(subset_name, color, subsets):
-    subset_colors = subsets[subset_name]
-
-    cleaned_color, serial_base = clean_color(color)
-    for subset_color in subset_colors:
-        if subset_color['color'] == cleaned_color and serial_base == subset_color['serial_base']:
-            return subset_color['id']
-
-    return None
-
-def clean_color(color):
-    if "Unnumbered" in color:
-        serial_base = None
-        pre_serial = color[:-10]
-    elif "/" in color:
-        pre_serial, serial_base = color.split("/")
-        serial_base = int(serial_base)
-
-    cleaned_color = pre_serial.strip()
-    return cleaned_color, serial_base

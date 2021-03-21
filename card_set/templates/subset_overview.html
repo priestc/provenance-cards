@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 {% load static %}
   <head>
@@ -34,16 +35,23 @@
     {% if not subset.serial_base and subset.checklist_size %}
       Estimated {{ subset.estimated_population_each|floatformat:0 }} exist of each card in this set
     {% endif %}
+    <br><a href="{{ subset.get_comc_link }}">Comc link</a>
   {% endfor %}
+
+  <br><a href="/collections/enter_subset/{{ subset.id }}">Add your collection</a>
 
   <h3>Cards Pulled</h3>
 
   <table border="1" class="sortable">
+
     {% if subset.multi_base %}
     <tr><th>Subject</th><td>Found</td><td>Percent</td><td>Expected <br>Percentage</td><td>Scarcity <br>Factor</td><td>Estimated <br>Population</td></tr>
+    {% elif subset.multi_base_numbered %}
+    <tr><th>Subject</th><td>Serial Base</td><td>Found</td></tr>
     {% else %}
     <tr><th>Subject</th><td>Found</td></tr>
     {% endif %}
+
   {% for card, data in summary.items %}
     {% if subset.multi_base %}
     <tr>
@@ -54,9 +62,15 @@
       <td>{{ data.scarcity_factor|floatformat:2 }}</td>
       <td>{{ data.estimated_population }}</td>
     </tr>
+    {% elif subset.multi_base_numbered %}
+    <tr>
+      <th><a href="/card_overview/{{ subset.id }}/{{ data.name|slugify }}">{{ data.name }}</a></th>
+      <td>/{{ data.serial_base }}</td>
+      <td>{{ data.count }}</td>
+    </tr>
     {% else %}
     <tr>
-      <th><a href="/card_overview/{{ subset.id }}/{{ card|slugify }}">{{ card }}</a></th>
+      <th><a href="/card_overview/{{ subset.id }}/{{ data.name|slugify }}">{{ card }}</a></th>
       <td>{{ data }}</td>
     </tr>
     {% endif %}

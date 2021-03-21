@@ -8,7 +8,8 @@ admin.site.register(Set)
 admin.site.register(Manufacturer)
 
 class PullAdmin(admin.ModelAdmin):
-    list_display = ('id', 'card', 'serial', 'front_timestamp')
+    list_display = ('id', 'card', 'serial', 'front_timestamp', 'box')
+    search_fields = ('card__subject__name', )
 
 admin.site.register(Pull, PullAdmin)
 
@@ -21,7 +22,11 @@ admin.site.register(Video, VideoAdmin)
 admin.site.register(Breaker)
 
 class SubsetAdmin(admin.ModelAdmin):
-    list_display = ['set', 'name', 'color', 'serial_base', 'shorthand', 'checklist_size']
+    list_display = ['set', 'name', 'color', 'autographed', 'serial_base', 'shorthand', 'checklist_size']
+    readonly_fields = ['cards']
+
+    def cards(self, obj):
+        return "\n".join(str(x) for x in obj.card_set.all())
 
     def estimated_set_size(self, obj):
         disp = ""
@@ -45,11 +50,26 @@ class PullInline(admin.TabularInline):
     model = Pull
 
 class BoxAdmin(admin.ModelAdmin):
-    list_display = ['id', 'video', 'order', 'pull_count', 'scarcity_score', 'scarcity_rank', 'how_lucky']
+    list_display = ['id', 'video', 'order', 'pull_count', 'scarcity_score', 'scarcity_rank', 'how_lucky', 'missing_timestamps']
     inlines = [
         PullInline
     ]
     readonly_fields = ["display"]
+    search_fields = ['video__youtube_identifier']
+
+    def missing_timestamps(self, box):
+        for pull in box.pull_set.all():
+            if not pull.front_timestamp:
+                return True
+        return False
 
 admin.site.register(Box, BoxAdmin)
-admin.site.register(Card)
+
+class CardAdmin(admin.ModelAdmin):
+    search_fields = ('subject__name', )
+    readonly_fields = ('pull_count', )
+
+    def pull_count(self, obj):
+        return Pull.objects.filter(card=obj).count()
+
+admin.site.register(Card, CardAdmin)

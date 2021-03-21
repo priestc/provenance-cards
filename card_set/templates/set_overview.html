@@ -16,6 +16,7 @@
   <h4>{{ prod.type_plural }}</h4>
   <strong>{{ prod.pull_count }}</strong> pulls from a total of <strong>{{ prod.box_set.count }}</strong> {{ prod.type_plural }}<br>
   <strong>{{ stats.percent }}%</strong> of pulls come from {{ prod.type_plural }} <br><a href="/index_ui/{{ prod.id }}">Index New {{ prod.type }}</a><br><br>
+  Estimated product run: {{ prod.set.box_size_estimation }} {{ prod.type_plural }}
 
   <h4>Luckiest Breakers</h4>
   <table border="1">
@@ -24,7 +25,7 @@
     </tr>
   {% for data in prod.breaker_rundown %}
     <tr>
-      <td>{{ forloop.counter }}</td><td>{{ data.0 }}</td><td>{{ data.1 }}</td><td>{{ data.2|floatformat:2 }}</td>
+      <td>{{ forloop.counter }}</td><td>{{ data.0 }}</td><td>{{ data.1 }}</td><td>{{ data.2|floatformat:3 }}</td>
     </tr>
   {% endfor %}
   </table>
@@ -32,11 +33,23 @@
   <h4>Best {{ prod.type_plural }}</h4>
   <table border="1">
     <tr>
-      <td>Rank</td><td>Breaker</td><td>Video Link</td><td>Pulled</td>
+      <td>Rank</td><td>Box ID</td><td>Breaker</td><td>Video Link</td><td>Pulled</td>
     </tr>
   {% for box in prod.best_examples %}
     <tr>
-      <td>{{ forloop.counter }}</td><td>{{ box.id }} {{ box.video.breaker }}</td><td>{{ box.video_link|safe }}</td><td>{{ box.hits|safe }}</td>
+      <td>{{ forloop.counter }}</td><td>{{ box.id }}</td><td>{{ box.video.breaker }}</td><td>{{ box.video_link|safe }}</td><td>{{ box.hits|safe }}</td>
+    </tr>
+  {% endfor %}
+  </table>
+
+  <h4>Median {{ prod.type_plural }}</h4>
+  <table border="1">
+    <tr>
+      <td>Rank</td><td>Box ID</td><td>Breaker</td><td>Video Link</td><td>Pulled</td>
+    </tr>
+  {% for rank, box in prod.median_examples %}
+    <tr>
+      <td>{{ rank }}</td><td>{{ box.id }}</td><td>{{ box.video.breaker }}</td><td>{{ box.video_link|safe }}</td><td>{{ box.hits|safe }}</td>
     </tr>
   {% endfor %}
   </table>
@@ -44,11 +57,11 @@
   <h4>Worst {{ prod.type_plural }}</h4>
   <table border="1">
     <tr>
-      <td>Rank</td><td>Breaker</td><td>Video Link</td><td>Pulled</td>
+      <td>Rank</td><td>Box ID</td><td>Breaker</td><td>Video Link</td><td>Pulled</td>
     </tr>
   {% for box in prod.worst_examples %}
     <tr>
-      <td>{{ forloop.counter }}</td><td>{{ box.id }} {{ box.video.breaker }}</td><td>{{ box.video_link|safe }}</td><td>{{ box.hits|safe }}</td>
+      <td>{{ forloop.counter }}</td><td>{{ box.id }}</td><td>{{ box.video.breaker }}</td><td>{{ box.video_link|safe }}</td><td>{{ box.hits|safe }}</td>
     </tr>
   {% endfor %}
   </table>
