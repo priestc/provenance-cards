@@ -42,7 +42,17 @@ class SubsetAdmin(admin.ModelAdmin):
         return disp
 
 admin.site.register(Subset, SubsetAdmin)
-admin.site.register(Subject)
+
+class SubjectAdmin(admin.ModelAdmin):
+    list_display = ['id', 'name']
+    readonly_fields = ['show_cards']
+
+    def show_cards(self, obj):
+        return '\n'.join(
+            "[%s] %s" % (x.id, str(x)) for x in Card.objects.filter(subject=obj)
+        )
+
+admin.site.register(Subject, SubjectAdmin)
 
 admin.site.register(Product)
 
@@ -51,11 +61,12 @@ class PullInline(admin.TabularInline):
 
 class BoxAdmin(admin.ModelAdmin):
     list_display = ['id', 'video', 'order', 'pull_count', 'scarcity_score', 'scarcity_rank', 'how_lucky', 'missing_timestamps']
-    inlines = [
-        PullInline
-    ]
-    readonly_fields = ["display"]
+    #inlines = [PullInline]
+    readonly_fields = ["pulls"]
     search_fields = ['video__youtube_identifier']
+
+    def pulls(self, obj):
+        return obj.display()
 
     def missing_timestamps(self, box):
         for pull in box.pull_set.all():
@@ -66,7 +77,7 @@ class BoxAdmin(admin.ModelAdmin):
 admin.site.register(Box, BoxAdmin)
 
 class CardAdmin(admin.ModelAdmin):
-    search_fields = ('subject__name', )
+    search_fields = ('subject__name', 'id')
     readonly_fields = ('pull_count', )
 
     def pull_count(self, obj):

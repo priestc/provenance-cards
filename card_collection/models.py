@@ -38,3 +38,10 @@ class CollectionCard(models.Model):
     def minumum_rank(cls, username, set):
         percent = cls.total_product_percentage(username, set)
         return (100 - percent) / percent
+
+
+    @classmethod
+    def pull_matches(cls, username, set):
+        for cc in cls.objects.filter(owner__username=username, card__subset__set=set):
+            if cc.card.pull_set.filter(serial=cc.serial).exists():
+                print(cc)

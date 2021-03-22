@@ -6,6 +6,9 @@ from django.views.decorators.csrf import csrf_exempt
 from card_set.models import Card, Subset
 from .models import CollectionCard
 
+def collection_overview(request, username):
+    return render(request, "collection_overview.html", locals())
+
 @csrf_exempt
 def add_to_collection(request, subset_id):
     subset = Subset.objects.get(pk=subset_id)

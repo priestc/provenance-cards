@@ -596,7 +596,7 @@ class Box(models.Model):
     def display(self):
         disp = ""
         for pull in self.pull_set.all():
-            disp += "%s\n" % pull
+            disp += "[%d] %s\n" % (pull.id, pull)
         return disp
 
     def calculate_scarcity_score(self):
@@ -739,8 +739,9 @@ class Card(models.Model):
 
     def __str__(self):
         if self.subset.multi_base_numbered:
-            subset = "%s %s %s" % (
-                self.subset.set, self.subset.name, self.subset.color
+            subset = "%s %s %s /%s" % (
+                self.subset.set, self.subset.name, self.subset.color,
+                self.serial_base
             )
         else:
             subset = self.subset

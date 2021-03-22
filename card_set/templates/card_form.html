@@ -138,13 +138,6 @@
       t.show().data("index", next_index);
     });
 
-    if(fixed_subset) {
-      $(".subset").prop("disabled", true);
-      if(multi_base_numbered) {
-        1;
-      }
-    }
-
     function make_double_clicker(textbox, dropdown) {
       $("body").on("dblclick", textbox, function(){
         var t = $(this);

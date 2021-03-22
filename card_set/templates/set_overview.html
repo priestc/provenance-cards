@@ -1,5 +1,8 @@
-<h1>Trading Card Provenance</h1>
+{% extends "base.html" %}
 
+{% block page_title %}{{ set }}{% endblock %}
+
+{% block content %}
 <style>
   .hit_icon {
     background-color: black;
@@ -7,12 +10,10 @@
     font-weight: bold;
     padding: 2px;
   }
-  .auto {
-    background-color: red;
+   .auto {
+     background-color: red;
   }
 </style>
-
-<h2>{{set}}</h2>
 
 <h3>Products</h3>
 {% for prod, stats in product_overview.items %}
@@ -71,6 +72,8 @@
 
 {% endfor %}
 
+<hr>
+
 <h3>Subsets</h3>
 <ul>
 {% for name, data in non_auto_subsets.items %}
@@ -95,3 +98,4 @@
     {% endfor %}
 {% endfor %}
 </ul>
+{% endblock %}

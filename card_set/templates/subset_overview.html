@@ -1,25 +1,8 @@
-<!DOCTYPE html>
-<html>
-{% load static %}
-  <head>
-    <style>
-      /* Sortable tables */
-      table.sortable thead {
-          background-color:#eee;
-          color:#666666;
-          font-weight: bold;
-          cursor: default;
-      }
-    </style>
-    <script src="{% static 'sorttable.js' %}"></script>
-  </head>
-  <body>
+{% extends "base.html" %}
 
-  <h1>Trading Card Provenance</h1>
+{% block page_title %}{{ subset }}{% endblock %}
 
-
-  <h2>{{ subset }}</h2>
-
+{% block content %}
   <a href="/set_overview?set={{ subset.set.id }}">{{ subset.set }}</a>
 
   <h3>Statistics</h3>
@@ -38,7 +21,9 @@
     <br><a href="{{ subset.get_comc_link }}">Comc link</a>
   {% endfor %}
 
+  {% if request.user %}
   <br><a href="/collections/enter_subset/{{ subset.id }}">Add your collection</a>
+  {% endif %}
 
   <h3>Cards Pulled</h3>
 
@@ -76,5 +61,4 @@
     {% endif %}
   {% endfor %}
   </table>
-  </body>
-</html>
+{% endblock %}
