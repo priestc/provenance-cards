@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{request.user}}'s {{set}} collection{% endblock %}
+
+{% block content %}
+  <h3>Have list  ({{ haves|length }})</h3>
+  {% for card in haves %}
+     {{ card }}<br>
+  {% endfor %}
+  <h3>Need list ({{ needs|length }})</h3>
+  {% for card in needs %}
+     {{ card }}<br>
+  {% endfor %}
+{% endblock %}

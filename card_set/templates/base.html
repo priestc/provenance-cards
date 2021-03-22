@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+{% load static %}
+  <head>
+    <style>
+      /* Sortable tables */
+      table.sortable thead {
+          background-color:#eee;
+          color:#666666;
+          font-weight: bold;
+          cursor: default;
+      }
+    </style>
+    <script src="{% static 'sorttable.js' %}"></script>
+  </head>
+  <body>
+    <h1>Trading Card Provenance</h1>
+    <h2>{% block page_title %}{% endblock %}</h2>
+    {% block content %}{% endblock %}
+  </body>
+</html>
