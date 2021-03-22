@@ -70,7 +70,7 @@
     </tr>
     {% else %}
     <tr>
-      <th><a href="/card_overview/{{ subset.id }}/{{ data.name|slugify }}">{{ card }}</a></th>
+      <th><a href="/card_overview/{{ subset.id }}/{{ card|slugify }}">{{ card }}</a></th>
       <td>{{ data }}</td>
     </tr>
     {% endif %}

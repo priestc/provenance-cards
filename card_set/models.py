@@ -147,6 +147,14 @@ class Set(models.Model):
             Subject.objects.filter(card__subset__set=self).values_list('name', flat=True).distinct()
         )
 
+    @property
+    def total_scarcity(self):
+        total_scarcity = Box.objects.filter(product__set=self).aggregate(s=models.Sum('scarcity_score'))['s']
+        return total_scarcity
+
+    def average_scarcity_per_box(self):
+        return self.total_scarcity / Box.objects.filter(product__set=self).count()
+
 class Manufacturer(models.Model):
     manufacturer = models.TextField()
     mlb_licensed = models.BooleanField()
@@ -637,9 +645,10 @@ class Box(models.Model):
     def hits(self):
         hits = []
         for pull in self.pull_set.select_related("card__subset").order_by('card__subset__serial_base'):
-            sb = pull.card.serial_base or pull.card.subset.serial_base
-            if sb:
-                icon = "<span class='hit_icon'>/%s</span>" % sb
+            sb = pull.card.serial_base or pull.card.subset.serial_base or 'U'
+            auto = ' auto' if pull.card.subset.autographed else ''
+            if (sb != 'U') or auto:
+                icon = "<span class='hit_icon%s'>/%s</span>" % (auto, sb)
                 hits.append(icon)
         return " ".join(hits)
 
@@ -689,9 +698,17 @@ class Card(models.Model):
     @property
     def statistical_serial_base(self):
         if self.subset.multi_base:
+            # unnumbered cards where each card was in different quantities
             return self.multi_base_population()
         if not self.subset.serial_base:
+            # unnumbered cards with all the same expected pop
             return self.subset.estimated_population_each()
+
+        # each card in the subset has the same serial_base
+        return self.serial_base or self.subset.serial_base
+
+    def scarcity_value(self):
+        return (2 if self.subset.autographed else 1) / self.statistical_serial_base
 
     def multi_base_population(self):
         subset_estimated_population = self.subset.estimated_population()

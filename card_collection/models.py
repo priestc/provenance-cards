@@ -14,3 +14,27 @@ class CollectionCard(models.Model):
         return "%s (%s/%s)" % (
             self.card, self.serial, self.card.get_serial_base()
         )
+
+    @classmethod
+    def total_scarcity_for_user(cls, username, set):
+        collection = cls.objects.filter(owner__username=username)
+        scarcity = 0
+        for card in collection.select_related('card__subset'):
+            scarcity += card.card.scarcity_value()
+        return scarcity
+
+    @classmethod
+    def boxes_of_scarcity_for_user(cls, username, set):
+        per_box = set.average_scarcity_per_box()
+        return cls.total_scarcity_for_user(username, set) / per_box
+
+    @classmethod
+    def total_product_percentage(cls, username, set):
+        per_box = set.average_scarcity_per_box()
+        box_pop = set.box_size_estimation()
+        return cls.total_scarcity_for_user(username, set) / (per_box * box_pop) * 100
+
+    @classmethod
+    def minumum_rank(cls, username, set):
+        percent = cls.total_product_percentage(username, set)
+        return (100 - percent) / percent

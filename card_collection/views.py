@@ -1,6 +1,6 @@
 import json
 
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 
 from card_set.models import Card, Subset
@@ -22,4 +22,4 @@ def add_to_collection(request, subset_id):
             serial=item['serial'], damage=item['damage'], owner=request.user
         )
 
-    return render("profile")
+    return redirect('subset_overview', subset_id=subset_id)
