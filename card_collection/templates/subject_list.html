@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{request.user}}'s {{ subset }} collection{% endblock %}
+
+{% block content %}
+  <ul>
+  {% for subject, count in subject_list %}
+    <li><a href="{{ subject|slugify }}">{{ subject }}</a>({{ count }})</li>
+  {% endfor %}
+  </ul>
+{% endblock %}

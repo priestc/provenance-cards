@@ -1,14 +1,23 @@
 {% extends "base.html" %}
 
-{% block page_title %}{{request.user}}'s {{set}} collection{% endblock %}
+{% block page_title %}{{request.user}}'s {{ subset }} collection{% endblock %}
 
 {% block content %}
+  <br><a href="{{ subset.get_comc_link }}">Comc link</a><br>
+  <br><a href="/collections/enter_subset/{{ subset.id }}">Add your collection</a>
+  <br><a href="/collections/set/{{ subset.set.id }}/{{ username }}">{{username }}'s {{ subset.set }} collection</a>
+
   <h3>Have list  ({{ haves|length }})</h3>
-  {% for card in haves %}
-     {{ card }}<br>
+  <ul>
+  {% for cc in haves %}
+     <li>{{ cc.card.subject }} {{ cc.display_serial }}</li>
   {% endfor %}
+  </ul>
+
   <h3>Need list ({{ needs|length }})</h3>
+  <ul>
   {% for card in needs %}
-     {{ card }}<br>
+     <li>{{ card.subject }}</li>
   {% endfor %}
+  </ul>
 {% endblock %}

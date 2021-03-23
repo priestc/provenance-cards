@@ -3,6 +3,7 @@
 {% block page_title %}Add {{ subset }} to Collection{% endblock %}
 
 {% block content %}
+  <a href="/collections/subset/{{ subset.id }}/{{ request.user }}">See Collection</a>
 
   <script
   src="https://code.jquery.com/jquery-3.5.1.min.js"
@@ -13,7 +14,6 @@
     var subset_id = {{ subset.id }};
     var multi_base_numbered = {% if subset.multi_base_numbered %}true{% else %}false{% endif %};
   </script>
-  <body>
     <style>
       #card_template {
         display: none

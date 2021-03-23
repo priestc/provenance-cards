@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     Set, Manufacturer, Pull, Video, Breaker, Subset, Subject, Product, Box, Card
 )
+from card_collection.models import CollectionCard
 
 admin.site.register(Set)
 admin.site.register(Manufacturer)
@@ -78,9 +79,12 @@ admin.site.register(Box, BoxAdmin)
 
 class CardAdmin(admin.ModelAdmin):
     search_fields = ('subject__name', 'id')
-    readonly_fields = ('pull_count', )
+    readonly_fields = ('pull_count', 'collection_count')
 
     def pull_count(self, obj):
         return Pull.objects.filter(card=obj).count()
+
+    def collection_count(self, obj):
+        return CollectionCard.objects.filter(card=obj).count()
 
 admin.site.register(Card, CardAdmin)

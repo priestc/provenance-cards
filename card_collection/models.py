@@ -1,18 +1,21 @@
 from django.db import models
 
-# Create your models here.
+from card_set.models import Subject
 
 class CollectionCard(models.Model):
     card = models.ForeignKey('card_set.Card', on_delete=models.PROTECT)
     serial = models.IntegerField(default=None, null=True)
     owner = models.ForeignKey('auth.User', on_delete=models.PROTECT)
-    damage = models.TextField()
+    damage = models.TextField(blank=True)
 
     def __str__(self):
         if not self.card.subset.serial_base:
             return str(self.card)
-        return "%s (%s/%s)" % (
-            self.card, self.serial, self.card.get_serial_base()
+        return "%s %s" % (self.card, self.display_serial())
+
+    def display_serial(self):
+        return "(%s/%s)" % (
+            self.serial, self.card.get_serial_base()
         )
 
     @classmethod
@@ -45,3 +48,11 @@ class CollectionCard(models.Model):
         for cc in cls.objects.filter(owner__username=username, card__subset__set=set):
             if cc.card.pull_set.filter(serial=cc.serial).exists():
                 print(cc)
+
+    @classmethod
+    def most_owned_player(cls, username, set=None):
+        collection = Subject.objects.filter(card__collectioncard__owner__username=username)
+        return list(
+            collection.annotate(c=models.Count('card__collectioncard__id'))
+            .order_by('-c').values_list('name', 'c')
+        )

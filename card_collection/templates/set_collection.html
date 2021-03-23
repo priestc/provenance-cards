@@ -3,7 +3,7 @@
 {% block page_title %}{{request.user}}'s {{set}} collection{% endblock %}
 
 {% block content %}
-  {{ cards_count }} cards in collection
+  {{ cards_count }} cards in collection<br>
   {{ boxes_of_scarcity|floatformat:2 }} boxes of scarcity<br><br>
 
   {% for subset in subsets %}

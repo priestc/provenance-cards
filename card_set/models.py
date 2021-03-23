@@ -361,6 +361,10 @@ class Subject(models.Model):
         self.slug = slugify(self.name)
         super(Subject, self).save(*a, **k)
 
+    def comc_link(self):
+        n = self.name.replace(" ", "_")
+        return "https://www.comc.com/Players/Baseball/%s/sl,i100" % n
+
 class Video(models.Model):
     youtube_identifier = models.TextField(unique=True)
     breaker = models.ForeignKey("Breaker", on_delete=models.PROTECT)
@@ -747,7 +751,7 @@ class Card(models.Model):
             subset = self.subset
 
         card_number = " #%s " % self.card_number if self.card_number else ' '
-        return "%s%s%s" % (subset, card_number, self.subject)
+        return "%s %s%s" % (subset, self.subject, card_number)
 
     def get_serial_base(self):
         if self.subset.multi_base:
