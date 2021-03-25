@@ -5,7 +5,7 @@ from .views import (
 )
 
 urlpatterns = [
-    path('set_overview/', set_overview),
+    path('set_overview/<int:set_id>', set_overview),
     path('subset_overview/<int:subset_id>', subset_overview, name="subset_overview"),
     path('card_overview/<int:subset_id>/<str:slug>', card_overview),
 

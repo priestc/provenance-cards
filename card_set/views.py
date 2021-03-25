@@ -6,8 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .models import Set, Subset, Video, Product, Pull, Box, Subject, Card, clean_color
 
-def set_overview(request):
-    set_id = request.GET['set']
+def set_overview(request, set_id):
     set = Set.objects.get(id=set_id)
 
     subsets = set.all_subsets(categories=True)
