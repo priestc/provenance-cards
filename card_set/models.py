@@ -696,7 +696,13 @@ class Card(models.Model):
         if 'card_number' in card_form_line:
             card_opts['card_number'] = card_form_line['card_number']
 
-        card, c = cls.objects.get_or_create(subset=subset, subject=subject, **card_opts)
+        try:
+            card, c = cls.objects.get_or_create(subset=subset, subject=subject, **card_opts)
+        except cls.MultipleObjectsReturned:
+            # if there's 2 versions of this card in the database, one that has
+            # no card number, and one with. Use the one with.
+            card = cls.objects.filter(subset=subset, subject=subject, **card_opts).exclude(card_number='').get()
+
         return card
 
     @property

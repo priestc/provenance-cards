@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 
-{% block page_title %}Collection Overview for {{request.user}}{% endblock %}
+{% block page_title %}Collection Overview for {{ username }}{% endblock %}
 
 {% block content %}
   {{ card_count }} cards in collection.
+  <a href="{{ username }}/by_subject">Browse this collection by subject</a><br>
 
   <h3>Sets</h3>
   {% for set in sets %}
-    <a href="/collections/set/{{ set.id }}/{{ request.user }}">{{ set }}</a>
+    <a href="{{ username }}/set/{{ set.id }}">{{ set }}</a>
   {% endfor %}
 {% endblock %}

@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 
-{% block page_title %}{{request.user}}'s {{ subset }} collection{% endblock %}
+{% block page_title %}{{request.user}}'s {{ subset }} collection by subject{% endblock %}
 
 {% block content %}
+  <a href="/collections/{{ username }}">Browse {{ username }}'s entire collection</a><br>
+
   <ul>
   {% for subject, count in subject_list %}
-    <li><a href="{{ subject|slugify }}">{{ subject }}</a>({{ count }})</li>
+    <li><a href="by_subject/{{ subject|slugify }}">{{ subject }}</a> ({{ count }})</li>
   {% endfor %}
   </ul>
 {% endblock %}

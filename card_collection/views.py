@@ -25,18 +25,22 @@ def subset_overview(request, subset_id, username):
     needs = list(Card.objects.filter(subset=subset).exclude(collectioncard__in=haves))
     return render(request, "subset_collection.html", locals())
 
-def set_by_subject(request, username, subject, set_id):
-    pass
-
-def collection_by_subject(request, username, subject):
-    subj = Subject.objects.get(slug=subject)
+def by_subject(request, username, subject_slug, set_id=None):
+    extra_opts = {}
+    if set_id:
+        set = Set.objects.get(pk=set_id)
+        extra_opts = {'card__subset__set': set}
+    subject = Subject.objects.get(slug=subject_slug)
     haves = CollectionCard.objects.filter(
-        owner__username=username, card__subject=subj,
+        owner__username=username, card__subject=subject, **extra_opts
     ).order_by('card__subset__name', '-card__subset__serial_base')
     return render(request, "card_by_player.html", locals())
 
-def collection_subject_list(request, username):
-    subject_list = CollectionCard.most_owned_player(username)
+def collection_subject_list(request, username, set_id=None):
+    set = None
+    if set_id:
+        set = Set.objects.get(pk=set_id)
+    subject_list = CollectionCard.most_owned_player(username, set=set)
     return render(request, "subject_list.html", locals())
 
 @csrf_exempt
@@ -56,3 +60,14 @@ def add_to_collection(request, subset_id):
         )
 
     return redirect('subset_overview', subset_id=subset_id)
+
+
+# videos to index:
+
+# https://www.youtube.com/watch?v=cx2dYeHiApE
+# https://www.youtube.com/watch?v=cx2dYeHiApE
+# https://www.youtube.com/watch?v=uXbMRH3X3tY
+# https://www.youtube.com/watch?v=EzQHSSKrtjA
+# https://www.youtube.com/watch?v=qWbA45bBElE&t=146s
+# https://www.youtube.com/watch?v=IEgJ1fRzjnk
+# https://www.youtube.com/watch?v=o-_5Q_OzeQM

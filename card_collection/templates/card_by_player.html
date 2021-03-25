@@ -1,12 +1,18 @@
 {% extends "base.html" %}
 
-{% block page_title %}{{request.user}}'s {{ subset }} collection{% endblock %}
+{% block page_title %}{{request.user}}'s {{ set }} collection of {{ subject }}{% endblock %}
 
 {% block content %}
-  <br><a href="{{ subj.comc_link }}">Comc link</a><br>
-  <br><a href="/collections/set/{{ subset.set.id }}/{{ username }}">{{username }}'s {{ subset.set }} collection</a>
+  <br><a href="{{ subject.comc_link }}">Comc link</a><br>
 
-  <h3>Cards of {{ subj.name }} </h3>
+  {% if set %}
+  <br><a href="/collections/{{ username }}/set/{{ set.id }}">{{ username }}'s {{ set }} collection</a>
+  {% else %}
+  <br><a href="/collections/{{ username }}">{{ username }}'s collection</a>
+  {% endif %}
+
+
+  <h3>Cards of {{ subject.name }} </h3>
   <ul>
   {% for cc in haves %}
      <li>{{ cc.card }} {{ cc.display_serial }}</li>

@@ -125,6 +125,7 @@
       });
 
       $("body").on("change", ".color", function(){
+        console.log("color change");
         update_luck();
       });
 
@@ -163,6 +164,7 @@
           }
           total_found = i;
         });
+
         if(total_found >= 10) {
           var luck = scarcity_to_luck(scarcity_score);
           $("#luck_indicator").show().text(luck).attr("class", luck.replace(" ", "_"));

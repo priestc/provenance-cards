@@ -125,11 +125,11 @@ def register_pulls(request):
     subsets = product.set.all_subsets()
     box = Box.objects.create(video=video, order=box_order, product=product)
 
+    new_pulls = []
     for pull in pulls:
         if pull['subset_name'] == '---':
             continue
 
-        new_pulls = []
         subset_id = get_subset_id(pull['subset_name'], pull['color'], subsets)
         try:
             new_pulls.append(Pull.objects.create(

@@ -1,12 +1,16 @@
 {% extends "base.html" %}
 
-{% block page_title %}{{request.user}}'s {{set}} collection{% endblock %}
+{% block page_title %}{{ username }}'s {{ set }} collection{% endblock %}
 
 {% block content %}
   {{ cards_count }} cards in collection<br>
   {{ boxes_of_scarcity|floatformat:2 }} boxes of scarcity<br><br>
+  <a href="/collections/{{ username }}">{{ username }}'s Collection Overview</a><br>
+  <a href="/collections/{{ username }}/set/{{ set.id }}/by_subject">Browse {{ username }}'s {{ set }} Collection by subject</a><br>
 
+  <ul>
   {% for subset in subsets %}
-    <a href="/collections/subset/{{ subset.id }}/{{request.user }}">{{ subset }}</a><br>
+    <li><a href="/collections/{{ username }}/subset/{{ subset.id }}">{{ subset }}</a></li>
   {% endfor %}
+  <ul>
 {% endblock %}
