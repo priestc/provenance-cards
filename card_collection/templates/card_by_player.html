@@ -13,9 +13,14 @@
 
 
   <h3>Cards of {{ subject.name }} </h3>
-  <ul>
+  <table border="1" class="sortable">
+    <tr><td>Set/Subset</td><td>Serial</td><td>Serial Base</td></tr>
   {% for cc in haves %}
-     <li>{{ cc.card }} {{ cc.display_serial }}</li>
+     <tr>
+       <td>{{ cc.card.subset.set }} {{ cc.card.subset.name }} {{ cc.card.subset.color }}</td>
+       <td>{{ cc.serial }}</td>
+       <td>{{ cc.card.get_serial_base }}</td>
+     </tr>
   {% endfor %}
-  </ul>
+  </table>
 {% endblock %}

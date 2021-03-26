@@ -4,8 +4,8 @@
 
 {% block content %}
   <br><a href="{{ subset.get_comc_link }}">Comc link</a><br>
-  <br><a href="/collections/enter_subset/{{ subset.id }}">Add your collection</a>
-  <br><a href="/collections/set/{{ subset.set.id }}/{{ username }}">{{username }}'s {{ subset.set }} collection</a>
+  <br><a href="/collections/enter_subset/{{ subset.id }}">Add your collection of {{ subset }}</a>
+  <br><a href="/collections/{{ username }}/set/{{ subset.set.id }}">{{username }}'s {{ subset.set }} collection</a>
 
   <h3>Have list  ({{ haves|length }})</h3>
   <ul>

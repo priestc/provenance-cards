@@ -3,7 +3,7 @@
 {% block page_title %}Add {{ subset }} to Collection{% endblock %}
 
 {% block content %}
-  <a href="/collections/subset/{{ subset.id }}/{{ request.user }}">See Collection</a>
+  <a href="/collections/{{ request.user }}/subset/{{ subset.id }}">See Collection</a>
 
   <script
   src="https://code.jquery.com/jquery-3.5.1.min.js"

@@ -1,23 +1,18 @@
 from django.contrib import admin
 
 from .models import (
-    Set, Manufacturer, Pull, Video, Breaker, Subset, Subject, Product, Box, Card
+    Set, Manufacturer, Video, Breaker, Subset, Subject, Product, Card
 )
 from card_collection.models import CollectionCard
+from card_pull.models import Pull
 
 admin.site.register(Set)
 admin.site.register(Manufacturer)
 
-class PullAdmin(admin.ModelAdmin):
-    list_display = ('id', 'card', 'serial', 'front_timestamp', 'box')
-    search_fields = ('card__subject__name', )
-
-admin.site.register(Pull, PullAdmin)
-
-
 class VideoAdmin(admin.ModelAdmin):
     list_display = ['breaker', 'youtube_identifier', 'boxes', 'pulls_recorded', 'date', 'comment']
     readonly_fields = ['display_boxes']
+    search_fields = ('youtube_identifier', 'breaker__name')
 
 admin.site.register(Video, VideoAdmin)
 admin.site.register(Breaker)
@@ -54,31 +49,10 @@ class SubjectAdmin(admin.ModelAdmin):
         )
 
 admin.site.register(Subject, SubjectAdmin)
-
 admin.site.register(Product)
 
-class PullInline(admin.TabularInline):
-    model = Pull
-
-class BoxAdmin(admin.ModelAdmin):
-    list_display = ['id', 'video', 'order', 'pull_count', 'scarcity_score', 'scarcity_rank', 'how_lucky', 'missing_timestamps']
-    #inlines = [PullInline]
-    readonly_fields = ["pulls"]
-    search_fields = ['video__youtube_identifier']
-
-    def pulls(self, obj):
-        return obj.display()
-
-    def missing_timestamps(self, box):
-        for pull in box.pull_set.all():
-            if not pull.front_timestamp:
-                return True
-        return False
-
-admin.site.register(Box, BoxAdmin)
-
 class CardAdmin(admin.ModelAdmin):
-    search_fields = ('subject__name', 'id')
+    search_fields = ('subject__name', 'id', 'subset__name')
     readonly_fields = ('pull_count', 'collection_count')
 
     def pull_count(self, obj):

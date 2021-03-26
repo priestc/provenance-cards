@@ -132,7 +132,7 @@
       $("#send").click(function(){
         var order = $("#order").val();
         $.ajax({
-          "url": "/register_pulls/",
+          "url": "/pulls/register",
           "data": {
             'pulls': JSON.stringify(collect_cards_from_form()),
             'product_id': product_id, 'video_id': youtube_identifier, 'order': order
@@ -175,7 +175,7 @@
           }
           if(luck == "Bottom 20 All Time" || luck == "Top 20 All Time") {
             $.ajax({
-              url: "/luck_rank/" + product_id,
+              url: "/pulls/luck_rank/" + product_id,
               type: "post",
               data: {scarcity_score: scarcity_score, direction: direction}
             }).done(function(response){

@@ -38,7 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'card_set',
-    'card_collection'
+    'card_collection',
+    'card_pull',
 ]
 
 MIDDLEWARE = [

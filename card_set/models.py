@@ -14,6 +14,8 @@ from moviepy.editor import VideoFileClip, concatenate_videoclips
 import youtube_dl
 from youtubesearchpython import Video as YTVideo, ResultMode
 
+from card_pull.models import Box, Pull
+
 def verbose_color(serial_base, color):
     sb = ("/%s" % serial_base) if serial_base else "Unnumbered"
     if not color:
@@ -155,6 +157,13 @@ class Set(models.Model):
     def average_scarcity_per_box(self):
         return self.total_scarcity / Box.objects.filter(product__set=self).count()
 
+    def calculate_cached_statistics(self, verbose=False):
+        for subset in self.subset_set.all():
+            subset.calculate_statistical_serial_base(verbose=verbose)
+            if subset.multi_base:
+                for card in subset.card_set.all():
+                    card.calculate_multi_base_population(verbose=verbose)
+
 class Manufacturer(models.Model):
     manufacturer = models.TextField()
     mlb_licensed = models.BooleanField()
@@ -176,6 +185,8 @@ class Subset(models.Model):
     comc_color_blank = models.BooleanField(default=False, blank=True)
     comc_name = models.TextField(default='', blank=True)
     comc_name_blank = models.BooleanField(default=False, blank=True)
+    card_number_critical = models.BooleanField(default=False)
+    statistical_serial_base = models.FloatField(default=0, blank=True)
 
     def __str__(self):
         return "%s %s (%s)" % (self.set, self.name, self.verbose_color())
@@ -185,10 +196,10 @@ class Subset(models.Model):
 
     def total_population(self):
         if self.multi_base_numbered:
-            return sum(c.serial_base for c in self.card_set.all())
+            return sum((c.serial_base or 0) for c in self.card_set.all())
 
         checklist_size = self.checklist_size or self.estimate_checklist_size()
-        serial_base = self.serial_base or self.estimated_population_each()
+        serial_base = self.serial_base or self.statistical_serial_base
 
         return (
             checklist_size * serial_base
@@ -203,14 +214,21 @@ class Subset(models.Model):
         pulled = self.get_pulls().count()
         return int((pulled / ebp))
 
-    def estimated_population_each(self):
+    def calculate_statistical_serial_base(self, verbose=False):
         """
         Used when serial_base is unknown. Use statistics to estimate what it
         would be.
         """
         if self.serial_base:
-            raise Exception("No need to estimate when serial_base is already known")
-        return self.estimated_population() / (self.checklist_size or self.estimate_checklist_size())
+            return #No need to estimate when serial_base is already known
+        self.statistical_serial_base = (
+            self.estimated_population() / (self.checklist_size or self.estimate_checklist_size())
+        )
+        if verbose: print(self, "statistical serial base:", self.statistical_serial_base)
+        self.save()
+
+    def get_statistical_serial_base(self):
+        return self.statistical_serial_base
 
     def percent_indexed(self):
         indexed = {}
@@ -466,47 +484,6 @@ class Breaker(models.Model):
     def __str__(self):
         return self.name
 
-def timestamp_to_str(float_ts):
-    return str(datetime.timedelta(seconds=math.floor(float_ts)))
-
-class Pull(models.Model):
-    serial = models.TextField(blank=True)
-    card = models.ForeignKey("Card", on_delete=models.PROTECT, null=True)
-    front_timestamp = models.FloatField(blank=True, null=True)
-    back_timestamp = models.FloatField(blank=True, null=True)
-    damage = models.TextField(blank=True)
-    box = models.ForeignKey("Box", on_delete=models.PROTECT, null=True)
-
-    def __str__(self):
-        serial = self.show_identifier()
-        #ts = "(%s to %s)" % (self.front_timestamp_str(), self.next_timestamp_str())
-        return "%s %s" % (self.card, serial)
-
-    def show_identifier(self):
-        if self.card.subset.serial_base and not self.serial:
-            return "?/%s" % self.card.subset.serial_base
-        elif self.serial:
-            return "%s/%s" % (self.serial, self.card.subset.serial_base)
-        else:
-            return "Unnumbered"
-
-    def next_timestamp_str(self):
-        return timestamp_to_str(self.front_timestamp + 5)
-        o = self.box.pull_set.filter(front_timestamp__gt=self.front_timestamp)
-        try:
-            ts = o.order_by('front_timestamp')[0].front_timestamp
-        except IndexError:
-            # last card in box, use 5 second clip
-            return timestamp_to_str(self.front_timestamp + 5)
-        return timestamp_to_str(ts)
-
-    def front_timestamp_str(self):
-        return timestamp_to_str(self.front_timestamp)
-
-    def video_link(self):
-        return self.box.video.video_link(timestamp=self.front_timestamp)
-
-
 class Product(models.Model):
     set = models.ForeignKey("Set", on_delete=models.PROTECT)
     type = models.TextField()
@@ -585,78 +562,6 @@ class Product(models.Model):
         )
 
 
-class Box(models.Model):
-    product = models.ForeignKey("Product", on_delete=models.PROTECT)
-    video = models.ForeignKey("Video", on_delete=models.PROTECT)
-    order = models.IntegerField()
-    scarcity_score = models.FloatField(blank=True, default=0)
-
-    def __str__(self):
-        return "%s %s-%s" % (self.id, self.video, self.order)
-
-    def pull_count(self):
-        return Pull.objects.filter(box=self).count()
-
-    def display(self):
-        disp = ""
-        for pull in self.pull_set.all():
-            disp += "[%d] %s\n" % (pull.id, pull)
-        return disp
-
-    def calculate_scarcity_score(self):
-        score = 0
-        for pull in self.pull_set.select_related('card__subset').all():
-            sb = (
-                pull.card.statistical_serial_base or
-                pull.card.serial_base or
-                pull.card.subset.serial_base
-            )
-
-            print("using", sb, "as serial base")
-            this_score = 0 if not sb else 1.0 / sb # avoiding divide by zero
-            if pull.card.subset.autographed:
-                this_score *= 2
-
-            score += this_score
-
-        self.scarcity_score = score
-        self.save()
-        return score
-
-    def scarcity_rank(self):
-        return Box.objects.filter(scarcity_score__gte=self.scarcity_score).count()
-
-    def how_lucky(self):
-        ranges = self.product.get_luck_ranges()
-        if self.scarcity_score > ranges['mega_lucky']:
-            return "Top 20 All Time"
-        if self.scarcity_score < ranges['mega_unlucky']:
-            return "Bottom 20 All Time"
-        if self.scarcity_score > ranges['super_lucky']:
-            return "super lucky"
-        if self.scarcity_score < ranges['super_unlucky']:
-            return "super unlucky"
-        if self.scarcity_score > ranges['lucky']:
-            return "lucky"
-        if self.scarcity_score < ranges['unlucky']:
-            return "unlucky"
-        return "normal"
-
-    def video_link(self):
-        first_ts = self.pull_set.order_by("front_timestamp")[0].front_timestamp
-        return self.video.video_link(timestamp=first_ts)
-
-    def hits(self):
-        hits = []
-        for pull in self.pull_set.select_related("card__subset").order_by('card__subset__serial_base'):
-            sb = pull.card.serial_base or pull.card.subset.serial_base or 'U'
-            auto = ' auto' if pull.card.subset.autographed else ''
-            if (sb != 'U') or auto:
-                icon = "<span class='hit_icon%s'>/%s</span>" % (auto, sb)
-                hits.append(icon)
-        return " ".join(hits)
-
-
 def clean_color(color):
     if "Unnumbered" in color:
         serial_base = None
@@ -673,6 +578,7 @@ class Card(models.Model):
     subset = models.ForeignKey('Subset', on_delete=models.PROTECT)
     card_number = models.CharField(max_length=12, blank=True)
     serial_base = models.IntegerField(blank=True, null=True) # only for subsets with multi_base_numbered==True
+    multi_base_population = models.FloatField(default=0, blank=True)
 
     @classmethod
     def get_card(cls, subset_id, card_form_line, set):
@@ -709,10 +615,10 @@ class Card(models.Model):
     def statistical_serial_base(self):
         if self.subset.multi_base:
             # unnumbered cards where each card was in different quantities
-            return self.multi_base_population()
+            return self.multi_base_population
         if not self.subset.serial_base:
             # unnumbered cards with all the same expected pop
-            return self.subset.estimated_population_each()
+            return self.subset.statistical_serial_base
 
         # each card in the subset has the same serial_base
         return self.serial_base or self.subset.serial_base
@@ -720,13 +626,16 @@ class Card(models.Model):
     def scarcity_value(self):
         return (2 if self.subset.autographed else 1) / self.statistical_serial_base
 
-    def multi_base_population(self):
+    def calculate_multi_base_population(self, verbose=False):
         subset_estimated_population = self.subset.estimated_population()
         subset_population = self.subset.get_pulls().count()
         found = self.subset.get_pulls().filter(card__subject=self.subject).count()
         percentage = found / subset_population
         base_pop = subset_estimated_population * percentage
-        return base_pop
+        self.multi_base_population = base_pop
+        if verbose:
+            print(self, "statistical serial base:", base_pop)
+        self.save()
 
     def front_video(self):
         return self.make_video("front")

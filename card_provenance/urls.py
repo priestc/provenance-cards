@@ -21,5 +21,6 @@ from card_set import urls as cardset_urls
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("", include("card_set.urls")),
-    path("collections/", include("card_collection.urls"))
+    path("collections/", include("card_collection.urls")),
+    path("pulls/", include("card_pull.urls")),
 ]
