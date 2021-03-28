@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import Set, Subset, Video, Product, Subject, Card, clean_color
+from .models import Set, Subset, Video, Product, Subject, Card
 
 
 def set_overview(request, set_id):

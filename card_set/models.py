@@ -623,6 +623,7 @@ class Card(models.Model):
         # each card in the subset has the same serial_base
         return self.serial_base or self.subset.serial_base
 
+    @property
     def scarcity_value(self):
         return (2 if self.subset.autographed else 1) / self.statistical_serial_base
 

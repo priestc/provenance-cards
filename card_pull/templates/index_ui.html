@@ -34,7 +34,7 @@
       #ytplayer {
         margin: 10px;
       }
-      #button_area {
+      .button_area {
         display: none;
       }
       #error {
@@ -102,7 +102,7 @@
       <div id="left_side">
         <div id="ytplayer"></div>
 
-        <div id="button_area">
+        <div class="button_area">
           <input type="button" id="send" value="Send">
           Order: <input type="text" id="order" value="{{ next_order }}">
           <input type="button" id="slow" value="slow"> <input type="button" id="normal" value="normal">
@@ -241,7 +241,7 @@
           });
 
           $("#cards").show();
-          $("#button_area").show();
+          $(".button_area").show();
         }
       });
     </script>

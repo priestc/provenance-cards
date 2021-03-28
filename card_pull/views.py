@@ -6,7 +6,7 @@ from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import Box, Pull
-from card_set.models import Product, Video, Subset
+from card_set.models import Product, Video, Subset, Card, clean_color
 
 def get_subset_id(subset_name, color, subsets):
     subset_colors = subsets[subset_name]

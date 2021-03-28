@@ -72,16 +72,12 @@ class Box(models.Model):
 
     def calculate_scarcity_score(self, verbose=False):
         if verbose: print("before:", self.scarcity_score)
-        score = 0
+
+        score = []
         for pull in self.pull_set.select_related('card__subset').all():
-            sb = pull.card.statistical_serial_base
-            this_score = 0 if not sb else 1.0 / sb # avoiding divide by zero
-            if pull.card.subset.autographed:
-                this_score *= 2
+            score.append(pull.card.scarcity_value)
+        self.scarcity_score = sum(score) / len(score)
 
-            score += this_score
-
-        self.scarcity_score = score
         self.save()
         if verbose: print("after:", self.scarcity_score)
         return score
