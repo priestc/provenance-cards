@@ -91,7 +91,7 @@
     {% if not youtube_identifier %}
     <div id="step1">
       <div id="error"></div>
-      <form action="." method="post">
+      <form action="/pulls/new_box/{{ product.id }}" method="post">
         Youtube video id: <input type="text" name="youtube_id" value=""><br>
         <input type="submit" value="Next">
       </form>

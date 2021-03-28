@@ -484,6 +484,23 @@ class Breaker(models.Model):
     def __str__(self):
         return self.name
 
+    def boxes_by_product(self, product):
+        from card_pull.models import Box
+        return Box.objects.filter(video__breaker=self, product=product)
+
+    def calc_stats_for_product(self, product):
+        sum = 0
+        count = 0
+        self.product_boxes = list(self.boxes_by_product(product).order_by('-scarcity_score'))
+        for box in self.product_boxes:
+            count += 1
+            sum += box.scarcity_score
+
+        self.product_avg_scarcity = sum / count
+        self.product_total_boxes = count
+        return self
+
+
 class Product(models.Model):
     set = models.ForeignKey("Set", on_delete=models.PROTECT)
     type = models.TextField()
@@ -544,21 +561,12 @@ class Product(models.Model):
             tag = 'lte'
         return boxes.filter(**{"scarcity_score__%s" % tag: scarcity_score}).count() + 1
 
-    def breaker_rundown(self):
-        breakers = collections.defaultdict(dict)
-        for box in Box.objects.filter(product=self).select_related('video', 'video__breaker').all():
-            data = breakers[box.video.breaker]
-            scarcity = data.get('scarcity', 0)
-            data['scarcity'] = scarcity + box.scarcity_score
-            count = data.get('count', 0)
-            data['count'] = count + 1
-
-        for breaker, data in breakers.items():
-            data['avg'] = data['scarcity'] / data['count']
-
-        return sorted(
-            [[breaker, data['count'], data['avg']] for breaker, data in breakers.items()],
-            key=lambda x: x[2], reverse=True
+    def top_breakers(self, limit=20):
+        breakers = Breaker.objects.filter(
+            video__box__product=self
+        ).annotate(count=models.Count('video__box')).order_by('-count')[:limit]
+        return sorted([b.calc_stats_for_product(self) for b in breakers],
+            key=lambda b: b.product_avg_scarcity, reverse=True
         )
 
 

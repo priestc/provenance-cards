@@ -76,11 +76,11 @@ class Box(models.Model):
         score = []
         for pull in self.pull_set.select_related('card__subset').all():
             score.append(pull.card.scarcity_value)
-        self.scarcity_score = sum(score) / len(score)
+        self.scarcity_score = sum(score)
 
         self.save()
         if verbose: print("after:", self.scarcity_score)
-        return score
+        return self.scarcity_score
 
     def scarcity_rank(self):
         return Box.objects.filter(scarcity_score__gte=self.scarcity_score).count()

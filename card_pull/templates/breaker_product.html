@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{ breaker }}'s {{ product.type_plural }}{% endblock %}
+
+{% block content %}
+<table border="1" class="sortable">
+  <tr>
+    <td>Date</td>
+    <td>Scarcity Score</td>
+    <td>Luck</td>
+    <td>Pulled</td>
+    <td>Video Link</td>
+  </tr>
+{% for box in breaker.product_boxes %}
+  <tr>
+    <td sorttable_customkey="{{ box.video.date.isoformat }}">{{ box.video.date|date:"M d, Y" }}</td>
+    <td sorttable_customkey="{{ box.scarcity_score }}">{{ box.scarcity_score|floatformat:3 }}</td>
+    <td>{{ box.how_lucky }}</td>
+    <td>{{ box.hits|safe }}</td>
+    <td>{{ box.video_link|safe }}</td>
+  </tr>
+{% endfor %}
+</table>
+{% endblock %}

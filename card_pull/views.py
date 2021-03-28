@@ -6,7 +6,7 @@ from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import Box, Pull
-from card_set.models import Product, Video, Subset, Card, clean_color
+from card_set.models import Product, Video, Subset, Card, clean_color, Breaker
 
 def get_subset_id(subset_name, color, subsets):
     subset_colors = subsets[subset_name]
@@ -67,7 +67,7 @@ def index_ui(request, product_id, youtube_identifier=None):
 
         video, c = Video.objects.get_or_create(**details)
         return HttpResponseRedirect(
-            "/index_ui/%s/%s" % (product.id, details['youtube_identifier'])
+            "/pulls/new_box/%s/%s" % (product.id, details['youtube_identifier'])
         )
 
     if youtube_identifier:
@@ -90,3 +90,10 @@ def luck_rank(request, product_id):
     return JsonResponse({
         "rank": Product.potential_rank(product_id, scarcity_score, direction)
     })
+
+
+def breaker_rundown(request, breaker_id, product_id):
+    breaker = Breaker.objects.get(pk=breaker_id)
+    product = Product.objects.get(pk=product_id)
+    breaker.calc_stats_for_product(product)
+    return render(request, "breaker_product.html", locals())

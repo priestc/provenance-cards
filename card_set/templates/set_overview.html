@@ -3,17 +3,6 @@
 {% block page_title %}{{ set }}{% endblock %}
 
 {% block content %}
-<style>
-  .hit_icon {
-    background-color: black;
-    color: white;
-    font-weight: bold;
-    padding: 2px;
-  }
-   .auto {
-     background-color: red;
-  }
-</style>
 
 <h3>Products</h3>
 {% for prod, stats in product_overview.items %}
@@ -27,9 +16,12 @@
     <tr>
       <td>Rank</td><td>Breaker</td><td>Boxes opened</td><td>Avg. Scarcity</td>
     </tr>
-  {% for data in prod.breaker_rundown %}
+  {% for breaker in prod.top_breakers %}
     <tr>
-      <td>{{ forloop.counter }}</td><td>{{ data.0 }}</td><td>{{ data.1 }}</td><td>{{ data.2|floatformat:3 }}</td>
+      <td>{{ forloop.counter }}</td>
+      <td><a href="/pulls/breaker/{{ breaker.id }}/product/{{ prod.id }}">{{ breaker }}</a></td>
+      <td>{{ breaker.product_total_boxes }}</td>
+      <td>{{ breaker.product_avg_scarcity|floatformat:3 }}</td>
     </tr>
   {% endfor %}
   </table>
