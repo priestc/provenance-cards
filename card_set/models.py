@@ -331,7 +331,8 @@ class Subset(models.Model):
 
     def seen_percentage(self):
         """
-        What percentage of each card has been seen before.
+        What percentage of each card has been seen before with respect to the entire
+        subset.
         """
         if not self.serial_base:
             return
@@ -341,7 +342,10 @@ class Subset(models.Model):
         return self.get_pulls().filter(card__subject=subject)
 
     def estimate_checklist_size(self):
-        return Card.objects.filter(subset=self).count()
+        cards = Card.objects.filter(subset=self)
+        if self.card_number_critical:
+            return cards.exclude(card_number='').values('card_number').distinct().count()
+        return cards.values('subject__id').distinct().count()
 
     def get_comc_link(self):
         if self.comc_color_blank:
@@ -619,6 +623,9 @@ class Card(models.Model):
 
         return card
 
+    def get_pulls(self):
+        return self.subset.get_pulls().filter(card__subject=self.subject)
+
     @property
     def statistical_serial_base(self):
         if self.subset.multi_base:
@@ -636,15 +643,26 @@ class Card(models.Model):
         return (2 if self.subset.autographed else 1) / self.statistical_serial_base
 
     def calculate_multi_base_population(self, verbose=False):
-        subset_estimated_population = self.subset.estimated_population()
-        subset_population = self.subset.get_pulls().count()
-        found = self.subset.get_pulls().filter(card__subject=self.subject).count()
-        percentage = found / subset_population
-        base_pop = subset_estimated_population * percentage
-        self.multi_base_population = base_pop
+        self.multi_base_population = (
+            self.subset.estimated_population() * self.actual_subset_percentage / 100.0
+        )
         if verbose:
-            print(self, "statistical serial base:", base_pop)
+            print(self, "statistical serial base:", self.multi_base_population)
         self.save()
+
+    @property
+    def scarcity_factor(self):
+        scarcity_factor = self.expected_subset_percentage / self.actual_subset_percentage
+        polarity_scarcity_factor = scarcity_factor if scarcity_factor > 1 else (-1 / scarcity_factor)
+        return polarity_scarcity_factor * 100
+
+    @property
+    def expected_subset_percentage(self):
+        return 100.0 / (self.subset.checklist_size or self.subset.estimate_checklist_size())
+
+    @property
+    def actual_subset_percentage(self):
+        return self.get_pulls().count() / self.subset.get_pulls().count() * 100
 
     def front_video(self):
         return self.make_video("front")
