@@ -18,21 +18,8 @@ def set_overview(request, set_id):
 
 def subset_overview(request, subset_id):
     subset = Subset.objects.get(pk=subset_id)
-
     statistics = subset.percent_indexed()
-
-    if subset.multi_base_numbered:
-        summary = subset.multibase_numbered_pull_count()
-    else:
-        summary = subset.pull_count()
-
-    if subset.multi_base or subset.multi_base_numbered:
-        unique = len([k for k,v in summary.items() if v['count'] > 0])
-    else:
-        unique = len([k for k,v in summary.items() if v > 0])
-    if subset.checklist_size:
-        unique_percent = unique / subset.checklist_size * 100
-
+    pull_items = Card.objects.filter(subset=subset)
     return render(
         request, "subset_overview.html", locals()
     )

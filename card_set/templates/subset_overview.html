@@ -11,7 +11,7 @@
     {{ data.found }} Found in {{ product.type }}<br>
     At least one found in {{ data.boxes_found_in }} out of a total of {{ data.box_population }} boxes.<br>
     {% if subset.checklist_size %}{{ subset.checklist_size }} cards in the subset checklist.<br>{% endif %}
-    {{ unique }} Unique pulled {% if subset.checklist_size %}({{ unique_percent|floatformat:2 }}% of checklist){% endif %}<br>
+    {{ subset.seen_checklist_size }} Unique pulled {% if subset.checklist_size %}({{ subset.seen_percentage|floatformat:2 }}% of checklist){% endif %}<br>
     Percent of entire population found: {{ data.percentage_found|floatformat:2 }}%<br>
     Odds: {{ data.odds_per_box }}<br>
     Expected to exist: {{ data.expected|floatformat:0 }}<br>
@@ -37,26 +37,26 @@
     <tr><th>Subject</th><td>Found</td></tr>
     {% endif %}
 
-  {% for card, data in summary.items %}
+  {% for card in pull_items %}
     {% if subset.multi_base %}
     <tr>
-      <th><a href="/card_overview/{{ subset.id }}/{{ card|slugify }}">{{ card }}</a></th>
-      <td>{{ data.count }}</td>
-      <td>{{ data.percentage|floatformat:2 }}%</td>
-      <td>{{ data.expected_percentage|floatformat:2 }}%</td>
-      <td>{{ data.scarcity_factor|floatformat:2 }}</td>
-      <td>{{ data.estimated_population }}</td>
+      <th><a href="/card_overview/{{ subset.id }}/{{ card.subject|slugify }}">{{ card.subject }}</a></th>
+      <td>{{ card.get_pulls.count }}</td>
+      <td>{{ card.actual_subset_percentage|floatformat:2 }}%</td>
+      <td>{{ card.expected_subset_percentage|floatformat:2 }}%</td>
+      <td>{{ card.disp_scarcity_factor|safe }}</td>
+      <td>{{ card.multi_base_population|floatformat:0 }}</td>
     </tr>
     {% elif subset.multi_base_numbered %}
     <tr>
-      <th><a href="/card_overview/{{ subset.id }}/{{ data.name|slugify }}">{{ data.name }}</a></th>
-      <td>/{{ data.serial_base }}</td>
-      <td>{{ data.count }}</td>
+      <th><a href="/card_overview/{{ subset.id }}/{{ card.subject|slugify }}">{{ card.subject }}</a></th>
+      <td>/{{ card.serial_base }}</td>
+      <td>{{ card.get_pulls.count }}</td>
     </tr>
     {% else %}
     <tr>
-      <th><a href="/card_overview/{{ subset.id }}/{{ card|slugify }}">{{ card }}</a></th>
-      <td>{{ data }}</td>
+      <th><a href="/card_overview/{{ subset.id }}/{{ card.subject|slugify }}">{{ card.subject }}</a></th>
+      <td>{{ card.get_pulls.count }}</td>
     </tr>
     {% endif %}
   {% endfor %}

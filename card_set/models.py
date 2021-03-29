@@ -164,6 +164,10 @@ class Set(models.Model):
                 for card in subset.card_set.all():
                     card.calculate_multi_base_population(verbose=verbose)
 
+        for prod in self.product_set.all():
+            for box in prod.box_set.all():
+                box.calculate_scarcity_score(verbose=verbose)
+
 class Manufacturer(models.Model):
     manufacturer = models.TextField()
     mlb_licensed = models.BooleanField()
@@ -327,7 +331,7 @@ class Subset(models.Model):
         return summary
 
     def seen_checklist_size(self):
-        return self.get_pulls().values("subject").distinct().count()
+        return self.get_pulls().values("card__subject").distinct().count()
 
     def seen_percentage(self):
         """
@@ -640,6 +644,8 @@ class Card(models.Model):
 
     @property
     def scarcity_value(self):
+        if not self.statistical_serial_base:
+            self.calculate_multi_base_population()
         return (2 if self.subset.autographed else 1) / self.statistical_serial_base
 
     def calculate_multi_base_population(self, verbose=False):
@@ -653,8 +659,22 @@ class Card(models.Model):
     @property
     def scarcity_factor(self):
         scarcity_factor = self.expected_subset_percentage / self.actual_subset_percentage
-        polarity_scarcity_factor = scarcity_factor if scarcity_factor > 1 else (-1 / scarcity_factor)
+        polarity_scarcity_factor = (scarcity_factor - 1) if scarcity_factor > 1 else (-1 / scarcity_factor) + 1
         return polarity_scarcity_factor * 100
+
+    def disp_scarcity_factor(self):
+        sf = self.scarcity_factor
+        sign = '+' if sf > 0 else ''
+        color = "black"
+        if sf > 50: color = "green"
+        if sf < -50: color = "red"
+        tag = ''
+        if sf > 200: tag = "SP "
+        if sf > 400: tag = "SSP "
+        if sf > 800: tag = "SSSP "
+        if sf < -200: tag = "DP "
+        if sf < -400: tag = "DDP "
+        return "<span style='color: %s'>%s%s%.0f%%</span>" % (color, tag, sign, sf)
 
     @property
     def expected_subset_percentage(self):

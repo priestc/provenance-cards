@@ -44,8 +44,8 @@ class CollectionCard(models.Model):
 
 
     @classmethod
-    def pull_matches(cls, username, set):
-        for cc in cls.objects.filter(owner__username=username, card__subset__set=set):
+    def pull_matches(cls, username, set_id):
+        for cc in cls.objects.filter(owner__username=username, card__subset__set__id=set_id):
             if cc.card.pull_set.filter(serial=cc.serial).exists():
                 print(cc)
 
