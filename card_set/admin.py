@@ -22,7 +22,8 @@ class SubsetAdmin(admin.ModelAdmin):
     readonly_fields = ['cards']
 
     def cards(self, obj):
-        return "\n".join(str(x) for x in obj.card_set.all())
+        #import ipdb; ipdb.set_trace()
+        return "\n".join(str(x) for x in obj.get_subject_list_with_cards())
 
     def estimated_set_size(self, obj):
         disp = ""

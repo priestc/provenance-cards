@@ -45,6 +45,17 @@ class Pull(models.Model):
     def video_link(self):
         return self.box.video.video_link(timestamp=self.front_timestamp)
 
+    def as_json(self):
+        return {
+            'subject': self.card.subject.name,
+            'subset': [self.card.subset.name, self.card.subset.verbose_color()],
+            'serial': self.serial or '',
+            'front_timestamp': self.front_timestamp or '',
+            'back_timestamp': self.back_timestamp or '',
+            'damage': self.damage,
+            'card_number': self.card.card_number or ''
+        }
+
     class Meta:
         db_table = 'card_set_pull'
 
@@ -59,7 +70,7 @@ class Box(models.Model):
     indexed_on = models.DateTimeField(default=timezone.now, null=True)
 
     def __str__(self):
-        return "%s %s-%s" % (self.id, self.video, self.order)
+        return "[%s] %s (%s)" % (self.id, self.video, self.order)
 
     def pull_count(self):
         return Pull.objects.filter(box=self).count()
@@ -92,18 +103,29 @@ class Box(models.Model):
         if self.scarcity_score < ranges['mega_unlucky']:
             return "Bottom 20 All Time"
         if self.scarcity_score > ranges['super_lucky']:
-            return "super lucky"
+            return "Super Lucky"
         if self.scarcity_score < ranges['super_unlucky']:
-            return "super unlucky"
+            return "Super Unlucky"
         if self.scarcity_score > ranges['lucky']:
-            return "lucky"
+            return "Lucky"
         if self.scarcity_score < ranges['unlucky']:
-            return "unlucky"
-        return "normal"
+            return "Unlucky"
+        return "Normal"
+
+    def how_lucky_css_class(self):
+        return self.how_lucky().replace(" ", '_').lower()
 
     def video_link(self):
-        first_ts = self.pull_set.order_by("front_timestamp")[0].front_timestamp
-        return self.video.video_link(timestamp=first_ts)
+        return self.video.video_link(timestamp=self.start_timestamp())
+
+    def start_timestamp(self):
+        return self.pull_set.order_by("front_timestamp")[0].front_timestamp
+
+    def opened_datetime(self):
+        """
+        Order is places into the microsesonds spot in the date, to aide in sorting.
+        """
+        return self.video.date.replace(microsecond=self.order)
 
     def hits(self):
         hits = []

@@ -4,7 +4,7 @@ from .models import Box, Pull
 
 class PullAdmin(admin.ModelAdmin):
     list_display = ('id', 'card', 'serial', 'front_timestamp', 'box')
-    search_fields = ('card__subject__name', )
+    search_fields = ('card__subject__name', 'id__exact')
 
 admin.site.register(Pull, PullAdmin)
 

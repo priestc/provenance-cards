@@ -189,7 +189,7 @@ class Subset(models.Model):
     comc_color_blank = models.BooleanField(default=False, blank=True)
     comc_name = models.TextField(default='', blank=True)
     comc_name_blank = models.BooleanField(default=False, blank=True)
-    card_number_critical = models.BooleanField(default=False)
+    #card_number_critical = models.BooleanField(default=False)
     statistical_serial_base = models.FloatField(default=0, blank=True)
 
     def __str__(self):
@@ -347,8 +347,8 @@ class Subset(models.Model):
 
     def estimate_checklist_size(self):
         cards = Card.objects.filter(subset=self)
-        if self.card_number_critical:
-            return cards.exclude(card_number='').values('card_number').distinct().count()
+        #if self.card_number_critical:
+        #    return cards.exclude(card_number='').values('card_number').distinct().count()
         return cards.values('subject__id').distinct().count()
 
     def get_comc_link(self):
@@ -366,6 +366,27 @@ class Subset(models.Model):
             manufacturer=self.set.manufacturer, set=self.set.name.replace(" ", "_"),
             subset=subset.replace(" ", "_"), color=color, year=self.set.year
         )
+
+    def get_subject_list_with_cards(self):
+        cards = {}
+        for card in self.card_set.all():
+            already_added = card.subject in cards
+            already_has_number = already_added and cards[card.subject].card_number
+            print(already_has_number, "already has number")
+
+            if already_added:
+                print(cards[card.subject].card_number)
+
+            this_has_number = bool(card.card_number)
+
+            if already_has_number:
+                print(card.subject, card.card_number, 'already has number')
+                continue # skip dupe
+
+            print(card.subject, card.card_number, 'added')
+            cards[card.subject] = card
+
+        return cards.values()
 
     class Meta:
         ordering = ("-serial_base", )
@@ -595,6 +616,7 @@ class Card(models.Model):
     card_number = models.CharField(max_length=12, blank=True)
     serial_base = models.IntegerField(blank=True, null=True) # only for subsets with multi_base_numbered==True
     multi_base_population = models.FloatField(default=0, blank=True)
+    variation = models.ForeignKey('card_set.Variation', null=True, default=None, on_delete=models.CASCADE)
 
     @classmethod
     def get_card(cls, subset_id, card_form_line, set):
@@ -712,7 +734,7 @@ class Card(models.Model):
         else:
             subset = self.subset
 
-        card_number = " #%s " % self.card_number if self.card_number else ' '
+        card_number = " #%s" % self.card_number if self.card_number else ' '
         return "%s %s%s" % (subset, self.subject, card_number)
 
     def get_serial_base(self):
@@ -722,6 +744,11 @@ class Card(models.Model):
 
     class Meta:
         ordering = ('subject__name', 'subset__name')
+
+
+class Variation(models.Model):
+    name = models.TextField()
+    card_number = models.CharField(max_length=12, blank=True)
 
 
 def make_multibase(base_subset, all_subsets):

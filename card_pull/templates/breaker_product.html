@@ -3,6 +3,10 @@
 {% block page_title %}{{ breaker }}'s {{ product.type_plural }}{% endblock %}
 
 {% block content %}
+<style>
+  .luck {text-align: center}
+</style>
+
 <table border="1" class="sortable">
   <tr>
     <td>Date</td>
@@ -13,11 +17,11 @@
   </tr>
 {% for box in breaker.product_boxes %}
   <tr>
-    <td sorttable_customkey="{{ box.video.date.isoformat }}">{{ box.video.date|date:"M d, Y" }}</td>
+    <td sorttable_customkey="{{ box.opened_datetime.isoformat }}">{{ box.video.date|date:"M d, Y" }}</td>
     <td sorttable_customkey="{{ box.scarcity_score }}">{{ box.scarcity_score|floatformat:3 }}</td>
-    <td>{{ box.how_lucky }}</td>
+    <td class="luck {{ box.how_lucky_css_class }}">{{ box.how_lucky }}</td>
     <td>{{ box.hits|safe }}</td>
-    <td>{{ box.video_link|safe }}</td>
+    <td><a href="/pulls/box/{{ box.id }}">Link</a></td>
   </tr>
 {% endfor %}
 </table>

@@ -97,3 +97,21 @@ def breaker_rundown(request, breaker_id, product_id):
     product = Product.objects.get(pk=product_id)
     breaker.calc_stats_for_product(product)
     return render(request, "breaker_product.html", locals())
+
+def show_box(request, box_id):
+    box = Box.objects.get(pk=box_id)
+    return render(request, "show_box.html", locals())
+
+@csrf_exempt
+def edit_box(request, box_id):
+    if not request.POST:
+        existing_box = Box.objects.get(pk=box_id)
+        youtube_identifier = existing_box.video.youtube_identifier
+        product_id = existing_box.product.id
+        next_order = existing_box.order
+        left_off = existing_box.start_timestamp() - 5
+        dropdowns = existing_box.product.set.get_subset_dropdowns()
+    else:
+        import ipdb; ipdb.set_trace()
+
+    return render(request, "index_ui.html", locals())

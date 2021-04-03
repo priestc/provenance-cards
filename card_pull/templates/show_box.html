@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{ box }}{% endblock %}
+
+{% block content %}
+  <script
+  src="https://code.jquery.com/jquery-3.5.1.min.js"
+  integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
+  crossorigin="anonymous"></script>
+  <script src="https://www.youtube.com/player_api"></script>
+
+  <a href="/pulls/edit_box/{{ box.id }}">Edit this box</a><br>
+
+  <div id="ytplayer"></div>
+
+  <style>
+    .highlighted {
+      background: lime;
+    }
+  </style>
+
+  <table border="1" id="pull_table">
+    <tr>
+      <td>Front Timestamp</td>
+      <td>Subject</td>
+      <td>Subset</td>
+      <td>Serial</td>
+    </tr>
+  {% for pull in box.pull_set.all %}
+    <tr id="index{{ forloop.counter0 }}">
+      <td class="timestamp" data-index="{{ forloop.counter1 }}"><input class="jump" type="button" value="Jump">{{ pull.front_timestamp }}</td>
+      <td>{{ pull.card.subject }}</td>
+      <td>{{ pull.card.subset }}</td>
+      <td>{{ pull.serial }}</td>
+    </tr>
+  {% endfor %}
+  </table>
+
+<script>
+
+  $(".jump").click(function(){
+    var timestamp = $(this).parent().text();
+    console.log("jump to", timestamp);
+    player.seekTo(timestamp);
+  });
+
+  var player;
+  window.YT.ready(function() {
+    player = new YT.Player('ytplayer', {
+      height: '720',
+      width: '1280',
+      videoId: "{{ box.video.youtube_identifier }}",
+      playerVars: {start: {{ box.start_timestamp|floatformat:0 }}},
+      events: {
+        onStateChange: start_stop_interval
+      }
+    });
+  });
+
+  var timestamps = [];
+  $(".timestamp").each(function(i, ele){
+    var ts = parseFloat($(this).text());
+    timestamps.push([ts, i]);
+  });
+  timestamps.reverse();
+
+  var switcher_id = null;
+  function start_stop_interval() {
+    //console.log("start stop called, state is", player.playerInfo.playerState);
+    if(player.playerInfo.playerState == 2) { // paused, stop interval
+      //console.log("clearning:", switcher_id);
+      clearInterval(switcher_id);
+      switcher_id = null;
+      return
+    }
+
+    if(switcher_id) {
+      return
+    }
+
+    switcher_id = setInterval(function() { // video is playing, start interval
+      var now = player.playerInfo.currentTime;
+      //console.log("interval running", now);
+      for(data of timestamps) {
+        var ts = data[0];
+        var index = data[1];
+        if(now > ts) {
+          $("#pull_table tr").removeClass("highlighted");
+          $("#index" + index).addClass('highlighted');
+          break;
+        }
+      }
+    }, 500);
+    //console.log("started interval", switcher_id);
+  }
+</script>
+{% endblock %}

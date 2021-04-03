@@ -1,6 +1,6 @@
 from django.db import models
 
-from card_set.models import Subject
+from card_set.models import Subject, Set
 
 class CollectionCard(models.Model):
     card = models.ForeignKey('card_set.Card', on_delete=models.PROTECT)
@@ -19,29 +19,30 @@ class CollectionCard(models.Model):
         )
 
     @classmethod
-    def total_scarcity_for_user(cls, username, set):
+    def total_scarcity_for_user(cls, username, set_id=None):
         collection = cls.objects.filter(owner__username=username)
         scarcity = 0
         for card in collection.select_related('card__subset'):
-            scarcity += card.card.scarcity_value()
+            scarcity += card.card.scarcity_value
         return scarcity
 
     @classmethod
-    def boxes_of_scarcity_for_user(cls, username, set):
+    def boxes_of_scarcity_for_user(cls, username, set_id=None):
+        set = Set.objects.get(pk=set_id)
         per_box = set.average_scarcity_per_box()
         return cls.total_scarcity_for_user(username, set) / per_box
 
     @classmethod
-    def total_product_percentage(cls, username, set):
+    def total_product_percentage(cls, username, set_id=None):
+        set = Set.objects.get(pk=set_id)
         per_box = set.average_scarcity_per_box()
         box_pop = set.box_size_estimation()
-        return cls.total_scarcity_for_user(username, set) / (per_box * box_pop) * 100
+        return cls.total_scarcity_for_user(username, set_id) / (per_box * box_pop) * 100
 
     @classmethod
-    def minumum_rank(cls, username, set):
-        percent = cls.total_product_percentage(username, set)
+    def minumum_rank(cls, username, set_id=None):
+        percent = cls.total_product_percentage(username, set_id)
         return (100 - percent) / percent
-
 
     @classmethod
     def pull_matches(cls, username, set_id):

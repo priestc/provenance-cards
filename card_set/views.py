@@ -19,7 +19,7 @@ def set_overview(request, set_id):
 def subset_overview(request, subset_id):
     subset = Subset.objects.get(pk=subset_id)
     statistics = subset.percent_indexed()
-    pull_items = Card.objects.filter(subset=subset)
+    pull_items = subset.get_subject_list_with_cards()
     return render(
         request, "subset_overview.html", locals()
     )
@@ -27,7 +27,6 @@ def subset_overview(request, subset_id):
 def card_overview(request, subset_id, slug):
     subset = Subset.objects.get(pk=subset_id)
     subject = Subject.objects.get(slug=slug)
-
     pulls = subset.pulls_for_subject(subject)
 
     return render(

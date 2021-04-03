@@ -14,7 +14,7 @@
 
     <script>
       var shorthands = {{ shorthands_json|safe|default:"null" }};
-      var expected_pulls = {{ expected_pulls|default:0 }};
+      var form_size = {{ expected_pulls|default:0 }};
       var product_id = {{ product_id }};
       var youtube_identifier = "{{ youtube_identifier }}";
       var left_off = {{ left_off|default:0|floatformat:0 }};
@@ -54,39 +54,11 @@
         font-weight: bold;
         text-transform: capitalize;
       }
-      .lucky {
-        color: #5bff19;
-        background-color: #689828;
-      }
-      .unlucky {
-        color: #cbff00;
-        background-color: red;
-      }
-      .super_lucky {
-        color: green;
-        background-color: lime;
-      }
-      .super_unlucky {
-        color: #9bff00;
-        background-color: #540101;
-      }
-      .Top_20 {
-        background-color: purple;
-        color: white;
-      }
-      .Bottom_20 {
-        background-color: yellow;
-        color: gray;
-      }
-      .normal {
-        color: black;
-        background-color: white;
-      }
 
     </style>
 
     <h1>Card Provanance</h1>
-    <h2>Index New {{ product }}</h2>
+    <h2> {%if existing_box %}Modify {{ existing_box }}{%else%}Index New {{ product }}{% endif %}</h2>
 
     {% if not youtube_identifier %}
     <div id="step1">
@@ -130,12 +102,15 @@
       });
 
       $("#send").click(function(){
+        var url = {% if existing_box %}"/pulls/edit_box/{{ existing_box.id }}"{% else %}"/pulls/register"{% endif %};
         var order = $("#order").val();
+        var box_id = $("#box_id").val();
         $.ajax({
-          "url": "/pulls/register",
+          "url": url,
           "data": {
             'pulls': JSON.stringify(collect_cards_from_form()),
-            'product_id': product_id, 'video_id': youtube_identifier, 'order': order
+            'product_id': product_id, 'video_id': youtube_identifier,
+            'order': order,
           },
           "type": "post"
         }).done(function(response){
@@ -228,11 +203,16 @@
 
       var player;
       window.YT.ready(function() {
-        if(youtube_identifier != "None"){
-          for(var x = 0; x < expected_pulls; x++) {
-            $('#new_card').click();
+        if(youtube_identifier != "None") {
+          if(form_size) {
+            for(var x = 0; x < form_size; x++) {
+              $('#new_card').click();
+            }
+          } else {
+            console.log("from existing")
+            {% for pull in existing_box.pull_set.all %}
+            new_row({{ pull.as_json|safe }});{% endfor %}
           }
-
           player = new YT.Player('ytplayer', {
             height: '720',
             width: '1280',

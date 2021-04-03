@@ -37,6 +37,7 @@
   {% endfor %}
 </datalist>
 
+<input type="text" style="display: none" value="{{ existing_box.id }}">
 <table id="cards">
   <tr>
     <td>Subject</td><td>Front Timestamp</td><td>Subset</td><td>Serial</td><td>Damage</td><td>Back Timestamp</td>
@@ -83,6 +84,23 @@
   <button id="new_card">New Card</button>
 </div>
 <script>
+  function new_row(existing_pull) {
+    console.log("new row")
+    var next_index = $(".card").length + 1;
+    var t = $("#card_template").clone().removeAttr('id').addClass("card");
+    t.appendTo($("#cards"));
+    t.show().data("index", next_index);
+
+    if(existing_pull) {
+      t.find(".manual_player").val(existing_pull['subject']);
+      t.find(".front_timestamp").val(existing_pull['front_timestamp']);
+      t.find(".back_timestamp").val(existing_pull['back_timestamp']);
+      t.find(".serial").val(existing_pull['serial']);
+      t.find(".subset").val(existing_pull['subset'][0]);
+      t.find(".color").val(existing_pull['subset'][1]);
+
+    }
+  }
   function collect_cards_from_form() {
     var cards = [];
     $(".card").each(function(i, p){
@@ -129,12 +147,7 @@
       }
     });
 
-    $("#new_card").click(function(){
-      var next_index = $(".card").length + 1;
-      var t = $("#card_template").clone().removeAttr('id').addClass("card");
-      t.appendTo($("#cards"));
-      t.show().data("index", next_index);
-    });
+    $("#new_card").click(new_row);
 
     function make_double_clicker(textbox, dropdown) {
       $("body").on("dblclick", textbox, function(){
