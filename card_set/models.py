@@ -195,8 +195,8 @@ class Subset(models.Model):
     def __str__(self):
         return "%s %s (%s)" % (self.set, self.name, self.verbose_color())
 
-    def verbose_color(self):
-        return verbose_color(self.serial_base, self.color)
+    def verbose_color(self, serial_base=None):
+        return verbose_color(serial_base or self.serial_base, self.color)
 
     def total_population(self):
         if self.multi_base_numbered:
@@ -738,7 +738,7 @@ class Card(models.Model):
         return "%s %s%s" % (subset, self.subject, card_number)
 
     def get_serial_base(self):
-        if self.subset.multi_base:
+        if self.subset.multi_base or self.subset.multi_base_numbered:
             return self.serial_base
         return self.subset.serial_base
 

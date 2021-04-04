@@ -21,6 +21,14 @@ def get_subset_id(subset_name, color, subsets):
 
     return None
 
+def new_pull_from_form(box, subsets, pull):
+    subset_id = get_subset_id(pull['subset_name'], pull['color'], subsets)
+    return Pull.objects.create(
+        box=box, card=Card.get_card(subset_id, pull, box.product.set), serial=pull['serial'],
+        front_timestamp=pull['front_timestamp'], damage=pull['damage'],
+        back_timestamp=pull['back_timestamp'] or None
+    )
+
 @csrf_exempt
 def register_pulls(request):
     product = Product.objects.get(id=request.POST['product_id'])
@@ -34,14 +42,8 @@ def register_pulls(request):
     for pull in pulls:
         if pull['subset_name'] == '---':
             continue
-
-        subset_id = get_subset_id(pull['subset_name'], pull['color'], subsets)
         try:
-            new_pulls.append(Pull.objects.create(
-                box=box, card=Card.get_card(subset_id, pull, product.set), serial=pull['serial'],
-                front_timestamp=pull['front_timestamp'], damage=pull['damage'],
-                back_timestamp=pull['back_timestamp'] or None
-            ))
+            new_pulls.append(new_pull_from_form(box, subsets, pull))
         except:
             for new_pull in new_pulls:
                 new_pull.delete()
@@ -104,14 +106,50 @@ def show_box(request, box_id):
 
 @csrf_exempt
 def edit_box(request, box_id):
+    existing_box = Box.objects.get(pk=box_id)
+    product = existing_box.product
+
     if not request.POST:
-        existing_box = Box.objects.get(pk=box_id)
         youtube_identifier = existing_box.video.youtube_identifier
-        product_id = existing_box.product.id
+        product_id = product.id
         next_order = existing_box.order
         left_off = existing_box.start_timestamp() - 5
-        dropdowns = existing_box.product.set.get_subset_dropdowns()
+        dropdowns = product.set.get_subset_dropdowns()
+        shorthands_json = json.dumps(product.set.get_shorthands())
+        subjects = product.set.get_subject_list()
+        multi_base_numbered = Subset.objects.filter(set__product=product, multi_base_numbered=True)
+        existing_pulls = existing_box.pull_set.order_by('front_timestamp')
     else:
-        import ipdb; ipdb.set_trace()
+        updated_pull_data = json.loads(request.POST['pulls'])
+        subsets = product.set.all_subsets()
+        existing_pulls = list(Pull.objects.filter(box=existing_box).order_by('front_timestamp'))
+
+        for i, pull in enumerate(updated_pull_data):
+            if pull['subset_name'] == '---':
+                continue
+            try:
+                existing_pull = existing_pulls[i]
+            except IndexError:
+                new_pull_from_form(existing_box, subsets, pull)
+                print(i, "new card", pull)
+                continue
+
+            print(i, "before", existing_pull)
+
+            subset_id = get_subset_id(pull['subset_name'], pull['color'], subsets)
+
+            existing_pull.card = Card.get_card(subset_id, pull, product.set)
+            existing_pull.serial = pull['serial']
+            existing_pull.front_timestamp = pull['front_timestamp'] or 0
+            existing_pull.back_timestamp = pull['back_timestamp'] or None
+            existing_pull.damage = pull['damage']
+
+            print(i, "saving", pull, "to", existing_pull)
+            existing_pull.save()
+            print(i, "after", existing_pull)
+            print("------------------------------------")
+
+        return HttpResponse("OK")
+
 
     return render(request, "index_ui.html", locals())

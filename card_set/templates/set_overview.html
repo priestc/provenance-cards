@@ -8,7 +8,7 @@
 {% for prod, stats in product_overview.items %}
   <h4>{{ prod.type_plural }}</h4>
   <strong>{{ prod.pull_count }}</strong> pulls from a total of <strong>{{ prod.box_set.count }}</strong> {{ prod.type_plural }}<br>
-  <strong>{{ stats.percent }}%</strong> of pulls come from {{ prod.type_plural }} <br><a href="/index_ui/{{ prod.id }}">Index New {{ prod.type }}</a><br><br>
+  <strong>{{ stats.percent }}%</strong> of pulls come from {{ prod.type_plural }} <br><a href="/pulls/new_box/{{ prod.id }}">Index New {{ prod.type }}</a><br><br>
   Estimated product run: {{ prod.set.box_size_estimation }} {{ prod.type_plural }}
   <br>Average scarcity score per box: {{ set.average_scarcity_per_box|floatformat:3 }}
 

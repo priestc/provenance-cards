@@ -16,8 +16,10 @@ class Pull(models.Model):
 
     def __str__(self):
         serial = self.show_identifier()
-        #ts = "(%s to %s)" % (self.front_timestamp_str(), self.next_timestamp_str())
-        return "%s %s" % (self.card, serial)
+        ts = ''
+        if not self.front_timestamp:
+            ts = " [NO TIMESTAMP]"
+        return "%s %s%s" % (self.card, serial, ts)
 
     def show_identifier(self):
         if self.card.subset.serial_base and not self.serial:
@@ -46,9 +48,11 @@ class Pull(models.Model):
         return self.box.video.video_link(timestamp=self.front_timestamp)
 
     def as_json(self):
+        color = self.card.subset.verbose_color(self.card.get_serial_base())
+        mbn = 1 if self.card.subset.multi_base_numbered else 0
         return {
             'subject': self.card.subject.name,
-            'subset': [self.card.subset.name, self.card.subset.verbose_color()],
+            'subset': [self.card.subset.name, color, mbn],
             'serial': self.serial or '',
             'front_timestamp': self.front_timestamp or '',
             'back_timestamp': self.back_timestamp or '',

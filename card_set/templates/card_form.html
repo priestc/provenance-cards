@@ -85,19 +85,24 @@
 </div>
 <script>
   function new_row(existing_pull) {
-    console.log("new row")
     var next_index = $(".card").length + 1;
     var t = $("#card_template").clone().removeAttr('id').addClass("card");
     t.appendTo($("#cards"));
     t.show().data("index", next_index);
 
-    if(existing_pull) {
+    if(existing_pull.subject) {
+      var color = existing_pull['subset'][1];
       t.find(".manual_player").val(existing_pull['subject']);
       t.find(".front_timestamp").val(existing_pull['front_timestamp']);
       t.find(".back_timestamp").val(existing_pull['back_timestamp']);
       t.find(".serial").val(existing_pull['serial']);
       t.find(".subset").val(existing_pull['subset'][0]);
-      t.find(".color").val(existing_pull['subset'][1]);
+      t.find(".color").val(color);
+      if(existing_pull['subset'][2]) {
+        // multi_base_numbered
+        t.find(".color").dblclick()
+        t.find(".manual_color").val(color);
+      }
 
     }
   }

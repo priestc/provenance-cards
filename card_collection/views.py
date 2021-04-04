@@ -13,10 +13,10 @@ def collection_overview(request, username):
     return render(request, "collection_overview.html", locals())
 
 def set_overview(request, set_id, username):
-    set = Set.objects.get(id=set_id)
-    subsets = Subset.objects.filter(card__collectioncard__owner__username=username, card__subset__set=set).distinct()
-    boxes_of_scarcity = CollectionCard.boxes_of_scarcity_for_user(username, set)
-    cards_count = CollectionCard.objects.filter(owner__username=username, card__subset__set=set).count()
+    args = {'card__collectioncard__owner__username': username, 'card__subset__set__id': set_id}
+    subsets = Subset.objects.filter(**args).distinct()
+    boxes_of_scarcity = CollectionCard.boxes_of_scarcity_for_user(username, set_id)
+    cards_count = CollectionCard.objects.filter(owner__username=username, card__subset__set__id=set_id).count()
     return render(request, "set_collection.html", locals())
 
 def subset_overview(request, subset_id, username):

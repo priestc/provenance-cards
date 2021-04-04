@@ -78,6 +78,7 @@
           <input type="button" id="send" value="Send">
           Order: <input type="text" id="order" value="{{ next_order }}">
           <input type="button" id="slow" value="slow"> <input type="button" id="normal" value="normal">
+          <input type="button" id="fast" value="fast">
         </div>
       </div>
 
@@ -114,7 +115,11 @@
           },
           "type": "post"
         }).done(function(response){
-          location.reload();
+          if(response == "OK") {
+            location.reload();
+          } else {
+            console.log(response);
+          }
         });
       });
 
@@ -124,8 +129,13 @@
       $("#normal").click(function(){
         player.setPlaybackRate(1.0);
       });
+      $("#fast").click(function(){
+        player.setPlaybackRate(2.0);
+      });
+
 
       function update_luck() {
+        return;
         var scarcity_score = 0;
         var total_found = 0;
         $(".color").each(function(i, color){
@@ -202,28 +212,31 @@
       }
 
       var player;
-      window.YT.ready(function() {
-        if(youtube_identifier != "None") {
-          if(form_size) {
-            for(var x = 0; x < form_size; x++) {
-              $('#new_card').click();
+      $(document).ready(function() {
+        window.YT.ready(function() {
+          console.log("yt ready", youtube_identifier, form_size);
+          if(youtube_identifier != "None") {
+            if(form_size) {
+              for(var x = 0; x < form_size; x++) {
+                $('#new_card').click();
+              }
+            } else {
+              console.log("from existing")
+              {% for pull in existing_pulls %}
+              new_row({{ pull.as_json|safe }});{% endfor %}
             }
-          } else {
-            console.log("from existing")
-            {% for pull in existing_box.pull_set.all %}
-            new_row({{ pull.as_json|safe }});{% endfor %}
-          }
-          player = new YT.Player('ytplayer', {
-            height: '720',
-            width: '1280',
-            videoId: youtube_identifier,
-            playerVars: {start: left_off}
-          });
+            player = new YT.Player('ytplayer', {
+              height: '720',
+              width: '1280',
+              videoId: youtube_identifier,
+              playerVars: {start: left_off}
+            });
 
-          $("#cards").show();
-          $(".button_area").show();
-        }
-      });
+            $("#cards").show();
+            $(".button_area").show();
+          }
+        });
+    });
     </script>
   </body>
 
