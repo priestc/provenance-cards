@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.models import User
 
 from .models import Set, Subset, Video, Product, Subject, Card
 
@@ -31,6 +32,13 @@ def card_overview(request, subset_id, slug):
 
     return render(
         request, "card_overview.html", locals()
+    )
+
+def index_page(request):
+    collections = User.objects.filter(collectioncard__isnull=False).distinct()
+    sets = Set.objects.all()
+    return render(
+        request, "index_page.html", locals()
     )
 
 ############### api endpoints below
